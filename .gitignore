@@ -44,6 +44,6 @@ out
 .coverage_lcov
 .coverage_llvm_cov
 doxygen-awesome-css
-html
+/html
 CMakeUserPresets.json
 .DS_Store
