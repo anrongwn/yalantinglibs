@@ -93,7 +93,15 @@ std::size_t calculate_varint_size(uint64_t t) {
 }
 template <typename T>
 std::size_t calculate_one_size(const T& t) {
-  if constexpr (VARINT<T>) {
+  if constexpr (detail::optional<T>) {
+    if (t.has_value()) {
+      return calculate_one_size(t.value());
+    }
+    else {
+      return 0;
+    }
+  }
+  else if constexpr (VARINT<T>) {
     return 1 + calculate_varint_size(t);
   }
   else if constexpr (LEN<T>) {
@@ -101,6 +109,9 @@ std::size_t calculate_one_size(const T& t) {
       return 1 + calculate_varint_size(t.size()) + t.size();
     }
     else if constexpr (detail::map_container<T> || detail::container<T>) {
+      if (t.empty()) {
+        return 0;
+      }
       using value_type = typename T::value_type;
       std::size_t sz = 0;
       for (auto&& i : t) {
@@ -144,7 +155,7 @@ std::size_t calculate_needed_size(const T& t, const Args&... args) {
 }
 using wire_type_t = uint8_t;
 template <typename T>
-wire_type_t get_wire_type() {
+consteval wire_type_t get_wire_type() {
   if constexpr (VARINT<T>) {
     return 0;
   }
@@ -181,6 +192,7 @@ class packer {
   }
   template <typename T, std::size_t FieldNumber>
   const auto& get_field(const T& t) {
+    static_assert(!detail::optional<T>);
     constexpr auto Count = detail::member_count<T>();
     constexpr std::size_t Index = FieldNumber - first_field_number<T>;
     static_assert(Index >= 0 && Index <= Count);
@@ -202,52 +214,69 @@ class packer {
   }
   template <typename T>
   void serialize(const T& t, std::size_t field_number) {
-    auto tag = (field_number << 3) | get_wire_type<T>();
-    assert(pos_ < max_);
-    data_[pos_++] = tag;
-    if constexpr (VARINT<T>) {
-      serialize_varint(t);
-    }
-    else if constexpr (I64<T> || I32<T>) {
-      std::memcpy(data_ + pos_, &t, sizeof(T));
-      pos_ += sizeof(T);
-    }
-    else if constexpr (LEN<T>) {
-      if constexpr (std::same_as<T, std::string>) {
-        serialize_varint(t.size());
-        assert(pos_ + t.size() <= max_);
-        std::memcpy(data_ + pos_, t.data(), t.size());
-        pos_ += t.size();
-      }
-      else if constexpr (detail::map_container<T> || detail::container<T>) {
-        using value_type = typename T::value_type;
-        auto sz_pos = pos_;
-        // risk to data len > 1byte
-        pos_++;
-        std::size_t sz = 0;
-        for (auto&& e : t) {
-          if constexpr (VARINT<value_type>) {
-            sz += calculate_varint_size(e);
-            serialize_varint(e);
-          }
-          else {
-            sz += get_needed_size(e);
-            serialize(e);
-          }
-        }
-        pos_ = sz_pos;
-        auto new_pos = pos_;
-        serialize_varint(sz);
-        pos_ = new_pos;
+    if constexpr (detail::optional<T>) {
+      if (t.has_value()) {
+        serialize(t.value(), field_number);
       }
       else {
-        auto sz = get_needed_size(t);
-        serialize_varint(sz);
-        serialize(t);
+        return;
       }
     }
     else {
-      static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
+      constexpr auto wire_type = get_wire_type<T>();
+      if constexpr (VARINT<T>) {
+        write_tag(field_number, wire_type);
+        serialize_varint(t);
+      }
+      else if constexpr (I64<T> || I32<T>) {
+        write_tag(field_number, wire_type);
+        std::memcpy(data_ + pos_, &t, sizeof(T));
+        pos_ += sizeof(T);
+      }
+      else if constexpr (LEN<T>) {
+        if constexpr (std::same_as<T, std::string>) {
+          write_tag(field_number, wire_type);
+          serialize_varint(t.size());
+          assert(pos_ + t.size() <= max_);
+          std::memcpy(data_ + pos_, t.data(), t.size());
+          pos_ += t.size();
+        }
+        else if constexpr (detail::map_container<T> || detail::container<T>) {
+          if (t.empty()) {
+            return;
+          }
+          write_tag(field_number, wire_type);
+          using value_type = typename T::value_type;
+          auto sz_pos = pos_;
+          // risk to data len > 1byte
+          pos_++;
+          std::size_t sz = 0;
+          for (auto&& e : t) {
+            if constexpr (VARINT<value_type>) {
+              sz += calculate_varint_size(e);
+              serialize_varint(e);
+            }
+            else {
+              sz += get_needed_size(e);
+              serialize(e);
+            }
+          }
+          pos_ = sz_pos;
+          auto new_pos = pos_;
+          serialize_varint(sz);
+          pos_ = new_pos;
+        }
+        else {
+          static_assert(std::is_class_v<T>);
+          write_tag(field_number, wire_type);
+          auto sz = get_needed_size(t);
+          serialize_varint(sz);
+          serialize(t);
+        }
+      }
+      else {
+        static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
+      }
     }
   }
   void serialize_varint(uint64_t t) {
@@ -258,6 +287,11 @@ class packer {
     } while (t != 0);
     assert(pos_ > 0);
     data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
+  }
+  void write_tag(std::size_t field_number, wire_type_t wire_type) {
+    auto tag = (field_number << 3) | wire_type;
+    assert(pos_ < max_);
+    data_[pos_++] = tag;
   }
 
  private:
