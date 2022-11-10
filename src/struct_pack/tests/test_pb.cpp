@@ -30,6 +30,12 @@ struct test3 {
 };
 template <>
 constexpr std::size_t first_field_number<test3> = 3;
+struct test4 {
+  std::string d;
+  std::vector<varint32_t> e;
+};
+template <>
+constexpr std::size_t first_field_number<test4> = 4;
 TEST_SUITE_BEGIN("test pb");
 TEST_CASE("testing test1") {
   test1 t;
@@ -56,6 +62,22 @@ TEST_CASE("testing test3") {
   auto size = get_needed_size(t);
   REQUIRE(size == 5);
   std::string buf{0x1a, 0x03, 0x08, (char)0x96, 0x01};
+  auto b = serialize<std::string>(t);
+  CHECK(buf == b);
+}
+TEST_CASE("testing test4") {
+  test4 t;
+  t.d = "hello";
+  t.e = {1, 2, 3};
+  auto size = get_needed_size(t);
+  REQUIRE(size == 12);
+  std::string buf{0x22, 0x05, 0x68, 0x65, 0x6c, 0x6c,
+                  0x6f, 0x2a, 0x03, 0x01, 0x02, 0x03};
+  // why document write
+  // 220568656c6c6f280128022803
+  // while my pb c++ code generated
+  // 34 5 'h' 'e' 'l' 'l' 'o' 42 3 1 2 3
+  // 22 5 68 65 6c 6c 6f 2a 3 1 2 3
   auto b = serialize<std::string>(t);
   CHECK(buf == b);
 }

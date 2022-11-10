@@ -76,7 +76,7 @@ template <typename T>
 std::size_t calculate_one_size(const T& t);
 template <typename T>
 std::size_t get_needed_size(const T& t) {
-  static_assert(std::is_aggregate_v<T>);
+  static_assert(std::is_class_v<T>);
   std::size_t ret = 0;
   detail::visit_members(t, [&ret](auto&&... args) {
     ret += calculate_needed_size(args...);
@@ -99,6 +99,19 @@ std::size_t calculate_one_size(const T& t) {
   else if constexpr (LEN<T>) {
     if constexpr (std::same_as<T, std::string>) {
       return 1 + calculate_varint_size(t.size()) + t.size();
+    }
+    else if constexpr (detail::map_container<T> || detail::container<T>) {
+      using value_type = typename T::value_type;
+      std::size_t sz = 0;
+      for (auto&& i : t) {
+        if constexpr (VARINT<value_type>) {
+          sz += calculate_varint_size(i);
+        }
+        else {
+          sz += calculate_one_size(i);
+        }
+      }
+      return 1 + calculate_varint_size(t.size()) + sz;
     }
     else if constexpr (std::is_class_v<T>) {
       std::size_t ret = 0;
@@ -205,6 +218,27 @@ class packer {
         assert(pos_ + t.size() <= max_);
         std::memcpy(data_ + pos_, t.data(), t.size());
         pos_ += t.size();
+      }
+      else if constexpr (detail::map_container<T> || detail::container<T>) {
+        using value_type = typename T::value_type;
+        auto sz_pos = pos_;
+        // risk to data len > 1byte
+        pos_++;
+        std::size_t sz = 0;
+        for (auto&& e : t) {
+          if constexpr (VARINT<value_type>) {
+            sz += calculate_varint_size(e);
+            serialize_varint(e);
+          }
+          else {
+            sz += get_needed_size(e);
+            serialize(e);
+          }
+        }
+        pos_ = sz_pos;
+        auto new_pos = pos_;
+        serialize_varint(sz);
+        pos_ = new_pos;
       }
       else {
         auto sz = get_needed_size(t);
