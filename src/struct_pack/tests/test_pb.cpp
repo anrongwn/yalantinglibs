@@ -130,4 +130,23 @@ TEST_CASE("testing test4") {
     CHECK(buf == b);
   }
 }
+struct my_test_float {
+  float a;
+  float b;
+  float c;
+  float d;
+  float e;
+};
+TEST_CASE("testing float") {
+  my_test_float t{.a = 0, .b = 1, .c = -1, .d = 1.234, .e = 1.234e5};
+  auto size = get_needed_size(t);
+  REQUIRE(size == 20);
+  // [20] 15 00 00 80 3f 1d 00 00 80 bf 25 b6 f3 9d 3f 2d 00 04 f1 47
+  std::string buf{0x15, 0x00,       0x00,       (char)0x80, 0x3f,
+                  0x1d, 0x00,       0x00,       (char)0x80, (char)0xbf,
+                  0x25, (char)0xb6, (char)0xf3, (char)0x9d, 0x3f,
+                  0x2d, 0x00,       0x04,       (char)0xf1, 0x47};
+  auto b = serialize<std::string>(t);
+  CHECK(buf == b);
+}
 TEST_SUITE_END;

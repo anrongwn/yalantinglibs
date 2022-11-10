@@ -66,7 +66,7 @@ concept LEN = std::same_as<T, std::string>
 template <typename T>
 concept I32 = std::same_as<T, int64_t>
     || std::same_as<T, uint64_t>
-    || std::same_as<T, double>
+    || std::same_as<T, float>
 ;
 // clang-format on
 std::size_t calculate_needed_size() { return 0; }
@@ -138,10 +138,16 @@ std::size_t calculate_one_size(const T& t) {
     }
   }
   else if constexpr (I64<T>) {
-    return 1 + 4;
+    if (t == 0) {
+      return 0;
+    }
+    return 1 + 8;
   }
   else if constexpr (I32<T>) {
-    return 1 + 2;
+    if (t == 0) {
+      return 0;
+    }
+    return 1 + 4;
   }
   else {
     static_assert(!sizeof(T), "ERROR type");
@@ -208,6 +214,14 @@ class packer {
       const auto& [a1, a2, a3] = t;
       return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
     }
+    else if constexpr (Count == 4) {
+      const auto& [a1, a2, a3, a4] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
+    }
+    else if constexpr (Count == 5) {
+      const auto& [a1, a2, a3, a4, a5] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
+    }
     else {
       static_assert(!sizeof(T), "wait for add hard code");
     }
@@ -229,6 +243,9 @@ class packer {
         serialize_varint(t);
       }
       else if constexpr (I64<T> || I32<T>) {
+        if (t == 0) {
+          return;
+        }
         write_tag(field_number, wire_type);
         std::memcpy(data_ + pos_, &t, sizeof(T));
         pos_ += sizeof(T);
