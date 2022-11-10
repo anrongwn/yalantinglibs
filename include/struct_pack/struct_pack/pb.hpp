@@ -17,16 +17,43 @@
 #include <cassert>
 #include <ostream>
 
+#include "struct_pack/struct_pack.hpp"
 #include "struct_pack/struct_pack/reflection.h"
 #include "struct_pack/struct_pack/struct_pack_impl.hpp"
 namespace struct_pack {
 namespace pb {
 template <typename T>
 class varint {
+  using value_type = T;
+
  public:
   varint() = default;
   varint(T t) : val(t) {}
   operator T() const { return val; }
+  auto& operator=(T t) {
+    val = t;
+    return *this;
+  }
+  auto operator<=>(const varint&) const = default;
+  auto operator&(uint8_t mask) const {
+    T new_val = val & mask;
+    return varint(new_val);
+  }
+  template <std::unsigned_integral U>
+  auto operator<<(U shift) const {
+    T new_val = val << shift;
+    return varint(new_val);
+  }
+  template <typename U>
+  auto operator|=(U shift) {
+    if constexpr (std::same_as<U, varint<T>>) {
+      val |= shift.val;
+    }
+    else {
+      val |= shift;
+    }
+    return *this;
+  }
   friend std::ostream& operator<<(std::ostream& os, const varint& varint) {
     os << varint.val;
     return os;
@@ -39,6 +66,23 @@ using varint32_t = varint<int32_t>;
 using varuint32_t = varint<uint32_t>;
 using varint64_t = varint<int64_t>;
 using varuint64_t = varint<uint64_t>;
+
+template <typename T>
+struct field_varint;
+
+template <typename T>
+struct field_varint<varint<T>> {
+  using value_type = T;
+};
+
+template <typename T>
+struct field_varint<std::optional<varint<T>>> {
+  using value_type = T;
+};
+
+template <typename T>
+using field_varint_t = typename field_varint<T>::value_type;
+
 // clang-format off
 template <typename T>
 concept VARINT =
@@ -159,20 +203,23 @@ std::size_t calculate_needed_size(const T& t, const Args&... args) {
   auto size = calculate_one_size(t);
   return size + calculate_needed_size(args...);
 }
-using wire_type_t = uint8_t;
+enum class wire_type_t : uint8_t { varint, i64, len, sgroup, egroup, i32 };
 template <typename T>
 consteval wire_type_t get_wire_type() {
-  if constexpr (VARINT<T>) {
-    return 0;
+  if constexpr (detail::optional<T>) {
+    return get_wire_type<typename std::remove_cvref_t<T>::value_type>();
+  }
+  else if constexpr (VARINT<T>) {
+    return wire_type_t::varint;
   }
   else if constexpr (I64<T>) {
-    return 1;
+    return wire_type_t::i64;
   }
   else if constexpr (LEN<T>) {
-    return 2;
+    return wire_type_t::len;
   }
   else if constexpr (I32<T>) {
-    return 5;
+    return wire_type_t::i32;
   }
   else {
     static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
@@ -306,7 +353,7 @@ class packer {
     data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
   }
   void write_tag(std::size_t field_number, wire_type_t wire_type) {
-    auto tag = (field_number << 3) | wire_type;
+    auto tag = (field_number << 3) | uint8_t(wire_type);
     assert(pos_ < max_);
     data_[pos_++] = tag;
   }
@@ -316,6 +363,196 @@ class packer {
   std::size_t pos_ = 0;
   std::size_t max_;
 };
+
+#define GET_FIELD_WIRE_TYPE(i)                                                 \
+  constexpr auto FieldNumber = i;                                              \
+  constexpr auto I = FieldNumber - first_field_number<T>;                      \
+  using T_Field =                                                              \
+      std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>; \
+  constexpr auto field_wire_type = get_wire_type<T_Field>();
+
+#define PARSE_FIELD(i)                  \
+  GET_FIELD_WIRE_TYPE(i)                \
+  if (field_wire_type != wire_type) {   \
+    return std::errc::invalid_argument; \
+  }                                     \
+  return deserialize_one<T, FieldNumber, field_wire_type>(t);
+
+template <detail::struct_pack_byte Byte>
+class unpacker {
+ public:
+  unpacker(const Byte* data, std::size_t size) : data_(data), size_(size) {}
+  template <typename T>
+  constexpr std::errc deserialize(T& t) {
+    if (size_ == 0) [[unlikely]] {
+      return std::errc{};
+    }
+    return deserialize_one(t);
+  }
+  std::size_t consume_len() const { return pos_; }
+
+ private:
+  template <typename T, std::size_t FieldNumber>
+  consteval auto get() {
+    constexpr auto I = FieldNumber - first_field_number<T>;
+    using T_Field =
+        std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>;
+    constexpr auto field_wire_type = get_wire_type<T_Field>();
+    return field_wire_type;
+  }
+  template <typename T>
+  constexpr std::errc deserialize_one(T& t) {
+    assert(pos_ < size_);
+    auto tag = data_[pos_];
+    uint8_t field_number = uint8_t(data_[pos_]) >> 3;
+    auto wire_type =
+        static_cast<wire_type_t>(uint8_t(data_[pos_]) & 0b0000'0111);
+    pos_++;
+    assert(field_number <= detail::member_count<T>());
+    if (field_number == 1) {
+      PARSE_FIELD(1)
+    }
+    else {
+      assert(false || "not support now");
+      return std::errc::function_not_supported;
+    }
+  }
+  template <typename T, std::size_t FieldNumber, wire_type_t WireType>
+  std::errc deserialize_one(T& t) {
+    static_assert(!std::is_const_v<T>);
+    auto&& f = get_field<T, FieldNumber>(t);
+    static_assert(!std::is_const_v<std::remove_reference_t<decltype(f)>>);
+    if constexpr (WireType == wire_type_t::varint) {
+      using field_type = std::remove_reference_t<decltype(f)>;
+      using value_type = field_varint_t<field_type>;
+      value_type v = 0;
+      auto ec = deserialize_varint(t, v);
+      if (ec == std::errc{}) {
+        f = v;
+      }
+      return ec;
+    }
+    else if constexpr (WireType == wire_type_t::len) {
+      return deserialize_len(t, f);
+    }
+    else if constexpr (WireType == wire_type_t::i32 ||
+                       WireType == wire_type_t::i64) {
+      return deserialize_fixedint(t, f);
+    }
+    else {
+      return std::errc::invalid_argument;
+    }
+  }
+  template <typename T, typename Field>
+  std::errc deserialize_varint(T& t, Field& f) {
+    if constexpr (detail::optional<Field>) {
+      return deserialize_varint(t, f.value());
+    }
+    else {
+      Field n = 0;
+      std::size_t i = 0;
+      bool finished = false;
+      while (pos_ < size_) {
+        if ((uint8_t(data_[pos_]) >> 7) == 1) {
+          n |= static_cast<Field>(data_[pos_] & 0b0111'1111) << 7 * i;
+          pos_++;
+          i++;
+        }
+        else {
+          finished = true;
+          break;
+        }
+      }
+      if (finished) {
+        n |= static_cast<Field>(data_[pos_] & 0b0111'1111) << 7 * i;
+        pos_++;
+        f = n;
+        return std::errc{};
+      }
+      else {
+        if (pos_ >= size_) {
+          return std::errc::no_buffer_space;
+        }
+        return std::errc::invalid_argument;
+      }
+    }
+  }
+
+  template <typename T, typename Field>
+  std::errc deserialize_fixedint(T& t, Field& f) {
+    if (detail::optional<Field>) {
+      return deserialize_fixedint(t, f.value());
+    }
+    else {
+      if (pos_ + sizeof(Field) > size_) {
+        return std::errc::no_buffer_space;
+      }
+      assert(pos_ + sizeof(Field) <= size_);
+      std::memcpy(&f, data_ + pos_, sizeof(Field));
+      pos_ += sizeof(Field);
+      return std::errc{};
+    }
+  }
+
+  template <typename T, typename Field>
+  std::errc deserialize_len(T& t, Field& f) {
+    if constexpr (std::same_as<Field, std::string>) {
+      uint64_t sz = 0;
+      deserialize_varint(t, sz);
+      f.resize(sz);
+      std::memcpy(f.data(), data_ + pos_, sz);
+      pos_ += sz;
+    }
+    else {
+      static_assert(!sizeof(Field), "not supported");
+    }
+  }
+
+  template <typename T, std::size_t FieldNumber>
+  auto&& get_field(T& t) {
+    static_assert(!detail::optional<T>);
+    constexpr auto Count = detail::member_count<T>();
+    constexpr std::size_t Index = FieldNumber - first_field_number<T>;
+    static_assert(Index >= 0 && Index <= Count);
+    if constexpr (Count == 1) {
+      auto&& [a1] = t;
+      return std::get<Index>(std::forward_as_tuple(a1));
+    }
+    else if constexpr (Count == 2) {
+      auto&& [a1, a2] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2));
+    }
+    else if constexpr (Count == 3) {
+      auto&& [a1, a2, a3] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
+    }
+    else if constexpr (Count == 4) {
+      auto&& [a1, a2, a3, a4] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
+    }
+    else if constexpr (Count == 5) {
+      auto&& [a1, a2, a3, a4, a5] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
+    }
+    else {
+      static_assert(!sizeof(T), "wait for add hard code");
+    }
+  }
+
+  template <typename T, std::size_t FieldNumber>
+  consteval decltype(auto) get_field_wire_type() {
+    constexpr auto I = FieldNumber - first_field_number<T>;
+    using T_Field =
+        std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>;
+    return get_wire_type<T_Field>();
+  }
+
+ private:
+  const Byte* data_;
+  std::size_t size_;
+  std::size_t pos_ = 0;
+};
+
 template <detail::struct_pack_buffer Buffer = std::vector<char>,
           typename... Args>
 [[nodiscard]] STRUCT_PACK_INLINE Buffer serialize(const Args&... args) {
@@ -327,5 +564,19 @@ template <detail::struct_pack_buffer Buffer = std::vector<char>,
   o.serialize(args...);
   return buffer;
 }
+template <typename T, detail::struct_pack_byte Byte>
+auto deserialize(const Byte* data, std::size_t size, std::size_t& consume_len) {
+  expected<T, std::errc> ret;
+  unpacker o(data, size);
+  auto ec = o.deserialize(ret.value());
+  if (ec != std::errc{}) {
+    ret = struct_pack::unexpected<std::errc>{ec};
+  }
+  else {
+    consume_len = o.consume_len();
+  }
+  return ret;
+}
+
 }  // namespace pb
 }  // namespace struct_pack

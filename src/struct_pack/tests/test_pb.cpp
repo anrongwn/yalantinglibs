@@ -44,6 +44,12 @@ TEST_CASE("testing test1") {
     REQUIRE(size == 0);
     auto b = serialize<std::string>(t);
     CHECK(b.empty());
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test1>(b.data(), b.size(), len);
+    CHECK(len == 0);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(t.a == d_t.a);
   }
   SUBCASE("has value") {
     t.a = 150;
@@ -52,6 +58,13 @@ TEST_CASE("testing test1") {
     std::string buf{0x08, (char)0x96, 0x01};
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test1>(b.data(), b.size(), len);
+    CHECK(len == 3);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    REQUIRE(d_t.a.has_value());
+    CHECK(t.a == d_t.a);
   }
 }
 TEST_CASE("testing test2") {
@@ -61,6 +74,11 @@ TEST_CASE("testing test2") {
     REQUIRE(size == 0);
     auto b = serialize<std::string>(t);
     CHECK(b.empty());
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test1>(b.data(), b.size(), len);
+    CHECK(len == 0);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
   }
   SUBCASE("has value") {
     t.b = "testing";
@@ -70,6 +88,13 @@ TEST_CASE("testing test2") {
     buf += t.b.value();
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
+    //    std::size_t len = 0;
+    //    auto d_t_ret = deserialize<test2>(b.data(), b.size(), len);
+    //    CHECK(len == 9);
+    //    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    //    auto d_t = d_t_ret.value();
+    //    REQUIRE(d_t.b.has_value());
+    //    CHECK(t.b == d_t.b);
   }
 }
 TEST_CASE("testing test3") {
