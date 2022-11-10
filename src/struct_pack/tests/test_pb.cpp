@@ -23,24 +23,40 @@ struct test1 {
 struct test2 {
   std::string b;
 };
+template <>
+constexpr std::size_t first_field_number<test2> = 2;
 struct test3 {
   test1 c;
 };
+template <>
+constexpr std::size_t first_field_number<test3> = 3;
+TEST_SUITE_BEGIN("test pb");
 TEST_CASE("testing test1") {
   test1 t;
   t.a = 150;
   auto size = get_needed_size(t);
   REQUIRE(size == 3);
+  std::string buf{0x08, (char)0x96, 0x01};
+  auto b = serialize<std::string>(t);
+  CHECK(buf == b);
 }
 TEST_CASE("testing test2") {
   test2 t;
   t.b = "testing";
   auto size = get_needed_size(t);
   REQUIRE(size == 9);
+  std::string buf{0x12, 0x07};
+  buf += t.b;
+  auto b = serialize<std::string>(t);
+  CHECK(buf == b);
 }
 TEST_CASE("testing test3") {
   test3 t;
   t.c.a = 150;
   auto size = get_needed_size(t);
   REQUIRE(size == 5);
+  std::string buf{0x1a, 0x03, 0x08, (char)0x96, 0x01};
+  auto b = serialize<std::string>(t);
+  CHECK(buf == b);
 }
+TEST_SUITE_END;
