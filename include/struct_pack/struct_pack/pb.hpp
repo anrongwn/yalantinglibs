@@ -158,16 +158,20 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
         return 0;
       }
       using value_type = typename T::value_type;
-      std::size_t sz = 0;
-      for (auto&& i : t) {
-        if constexpr (VARINT<value_type>) {
+      if constexpr (VARINT<value_type>) {
+        std::size_t sz = 0;
+        for (auto&& i : t) {
           sz += calculate_varint_size(i);
         }
-        else {
+        return 1 + calculate_varint_size(t.size()) + sz;
+      }
+      else {
+        std::size_t sz = 0;
+        for (auto&& i : t) {
           sz += calculate_one_size(i);
         }
+        return sz;
       }
-      return 1 + calculate_varint_size(t.size()) + sz;
     }
     else if constexpr (std::is_class_v<T>) {
       std::size_t ret = 0;
@@ -311,26 +315,30 @@ class packer {
           if (t.empty()) {
             return;
           }
-          write_tag(field_number, wire_type);
           using value_type = typename T::value_type;
-          auto sz_pos = pos_;
-          // risk to data len > 1byte
-          pos_++;
-          std::size_t sz = 0;
-          for (auto&& e : t) {
-            if constexpr (VARINT<value_type>) {
+          if constexpr (VARINT<value_type>) {
+            write_tag(field_number, wire_type);
+            auto sz_pos = pos_;
+            // risk to data len > 1byte
+            pos_++;
+            std::size_t sz = 0;
+            for (auto&& e : t) {
               sz += calculate_varint_size(e);
               serialize_varint(e);
             }
-            else {
-              sz += get_needed_size(e);
+            pos_ = sz_pos;
+            auto new_pos = pos_;
+            serialize_varint(sz);
+            pos_ = new_pos;
+          }
+          else {
+            for (auto&& e : t) {
+              write_tag(field_number, wire_type);
+              auto sz = get_needed_size(e);
+              serialize_varint(sz);
               serialize(e);
             }
           }
-          pos_ = sz_pos;
-          auto new_pos = pos_;
-          serialize_varint(sz);
-          pos_ = new_pos;
         }
         else {
           static_assert(std::is_class_v<T>);
