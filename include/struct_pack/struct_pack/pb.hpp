@@ -373,7 +373,13 @@ class unpacker {
     if (size_ == 0) [[unlikely]] {
       return std::errc{};
     }
-    return deserialize_one(t);
+    while (pos_ < size_) {
+      auto ec = deserialize_one(t);
+      if (ec != std::errc{}) {
+        return ec;
+      }
+    }
+    return std::errc{};
   }
   [[nodiscard]] std::size_t consume_len() const { return pos_; }
 
@@ -381,7 +387,6 @@ class unpacker {
   template <typename T>
   constexpr std::errc deserialize_one(T& t) {
     constexpr auto Count = detail::member_count<T>();
-    static_assert(Count == 1);
     assert(pos_ < size_);
     auto tag = data_[pos_];
     uint8_t field_number = uint8_t(data_[pos_]) >> 3;
@@ -398,6 +403,14 @@ class unpacker {
     }
     else if (field_number == 3) {
       const auto FieldNumber = 3;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 4) {
+      const auto FieldNumber = 4;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 5) {
+      const auto FieldNumber = 5;
       return deserialize_one<T, FieldNumber>(t, wire_type);
     }
     else {
@@ -542,6 +555,36 @@ class unpacker {
       std::memcpy(f.data(), data_ + pos_, sz);
       pos_ += sz;
       return std::errc{};
+    }
+    else if constexpr (detail::map_container<Field> ||
+                       detail::container<Field>) {
+      uint64_t sz = 0;
+      auto ec = deserialize_varint(t, sz);
+      if (ec != std::errc{}) {
+        return ec;
+      }
+      using value_type = typename Field::value_type;
+      static_assert(std::same_as<value_type, varint32_t>);
+      auto max_pos = pos_ + sz;
+      while (pos_ < max_pos) {
+        if constexpr (VARINT<value_type>) {
+          uint64_t val = 0;
+          ec = deserialize_varint(t, val);
+          if (ec != std::errc{}) {
+            return ec;
+          }
+          f.push_back(val);
+        }
+        else {
+          value_type val;
+          ec = deserialize_one(val);
+          if (ec != std::errc{}) {
+            return ec;
+          }
+          f.push_back(val);
+        }
+      }
+      return ec;
     }
     else {
       uint64_t sz = 0;

@@ -133,6 +133,11 @@ TEST_CASE("testing test4") {
     REQUIRE(size == 0);
     auto b = serialize<std::string>(t);
     CHECK(b.empty());
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test1>(b.data(), b.size(), len);
+    CHECK(len == 0);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
   }
   SUBCASE("string empty") {
     t.e = {1};
@@ -141,6 +146,15 @@ TEST_CASE("testing test4") {
     std::string buf{0x2a, 0x01, 0x01};
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test4>(b.data(), b.size(), len);
+    CHECK(len == 3);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(!d_t.d.has_value());
+    REQUIRE(!d_t.e.empty());
+    CHECK(t.e.size() == d_t.e.size());
+    CHECK(t.e[0] == d_t.e[0]);
   }
   SUBCASE("repeated empty") {
     t.d = "hi";
@@ -150,6 +164,14 @@ TEST_CASE("testing test4") {
     std::string buf{0x22, 0x02, 0x68, 0x69};
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test4>(b.data(), b.size(), len);
+    CHECK(len == 4);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.e.empty());
+    REQUIRE(d_t.d.has_value());
+    CHECK(t.d == d_t.d);
   }
   SUBCASE("has value") {
     t.d = "hello";
@@ -165,6 +187,13 @@ TEST_CASE("testing test4") {
     // 22 5 68 65 6c 6c 6f 2a 3 1 2 3
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test4>(b.data(), b.size(), len);
+    CHECK(len == 12);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(t.d == d_t.d);
+    CHECK(t.e == d_t.e);
   }
 }
 struct my_test_float {
