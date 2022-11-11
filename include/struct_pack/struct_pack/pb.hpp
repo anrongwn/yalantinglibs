@@ -375,7 +375,7 @@ class unpacker {
     }
     return deserialize_one(t);
   }
-  std::size_t consume_len() const { return pos_; }
+  [[nodiscard]] std::size_t consume_len() const { return pos_; }
 
  private:
   template <typename T>
@@ -396,8 +396,15 @@ class unpacker {
       const auto FieldNumber = 2;
       return deserialize_one<T, FieldNumber>(t, wire_type);
     }
+    else if (field_number == 3) {
+      const auto FieldNumber = 3;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
     else {
-      assert(false || "not support now");
+      std::cout << "field number: " << field_number << std::endl;
+      std::cout << "first field number: " << first_field_number<T> << std::endl;
+      std::cout << "member count: " << Count << std::endl;
+      assert(false && "not support now");
       return std::errc::function_not_supported;
     }
   }
@@ -407,7 +414,10 @@ class unpacker {
     constexpr auto Count = detail::member_count<T>();
     if constexpr (FieldNumber < first_field_number<T> ||
                   Count < FieldNumber - first_field_number<T>) {
-      assert(false || "not support now");
+      std::cout << "field number: " << FieldNumber << std::endl;
+      std::cout << "first field number: " << first_field_number<T> << std::endl;
+      std::cout << "member count: " << Count << std::endl;
+      assert(false && "not support now");
       return std::errc::invalid_argument;
     }
     else {
@@ -423,7 +433,11 @@ class unpacker {
         return deserialize_one<T, FieldNumber, field_wire_type>(t);
       }
       else {
-        assert(false || "not support now");
+        std::cout << "field number: " << FieldNumber << std::endl;
+        std::cout << "first field number: "
+                  << first_field_number<T> << std::endl;
+        std::cout << "member count: " << Count << std::endl;
+        assert(false && "not support now");
         return std::errc::invalid_argument;
       }
     }
@@ -514,6 +528,7 @@ class unpacker {
       if (ec != std::errc{}) {
         return ec;
       }
+      // TODO: copy?
       f = inner;
       return ec;
     }
@@ -529,7 +544,18 @@ class unpacker {
       return std::errc{};
     }
     else {
-      static_assert(!sizeof(Field), "not supported");
+      uint64_t sz = 0;
+      auto ec = deserialize_varint(t, sz);
+      if (ec != std::errc{}) {
+        return ec;
+      }
+      unpacker o(data_ + pos_, sz);
+      ec = o.template deserialize(f);
+      if (ec != std::errc{}) {
+        return ec;
+      }
+      pos_ += sz;
+      return ec;
     }
   }
 
