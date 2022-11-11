@@ -113,13 +113,14 @@ concept I32 = std::same_as<T, int64_t>
     || std::same_as<T, float>
 ;
 // clang-format on
-std::size_t calculate_needed_size() { return 0; }
+std::size_t STRUCT_PACK_INLINE calculate_needed_size() { return 0; }
 template <typename T, typename... Args>
-std::size_t calculate_needed_size(const T& t, const Args&... args);
+std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
+                                                     const Args&... args);
 template <typename T>
-std::size_t calculate_one_size(const T& t);
+std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t);
 template <typename T>
-std::size_t get_needed_size(const T& t) {
+std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
   static_assert(std::is_class_v<T>);
   std::size_t ret = 0;
   detail::visit_members(t, [&ret](auto&&... args) {
@@ -127,7 +128,7 @@ std::size_t get_needed_size(const T& t) {
   });
   return ret;
 }
-std::size_t calculate_varint_size(uint64_t t) {
+std::size_t STRUCT_PACK_INLINE calculate_varint_size(uint64_t t) {
   std::size_t ret = 0;
   do {
     ret++;
@@ -136,7 +137,7 @@ std::size_t calculate_varint_size(uint64_t t) {
   return ret;
 }
 template <typename T>
-std::size_t calculate_one_size(const T& t) {
+std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
   if constexpr (detail::optional<T>) {
     if (t.has_value()) {
       return calculate_one_size(t.value());
@@ -199,7 +200,8 @@ std::size_t calculate_one_size(const T& t) {
   }
 }
 template <typename T, typename... Args>
-std::size_t calculate_needed_size(const T& t, const Args&... args) {
+std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
+                                                     const Args&... args) {
   auto size = calculate_one_size(t);
   return size + calculate_needed_size(args...);
 }
@@ -659,7 +661,8 @@ template <detail::struct_pack_buffer Buffer = std::vector<char>,
   return buffer;
 }
 template <typename T, detail::struct_pack_byte Byte>
-auto deserialize(const Byte* data, std::size_t size, std::size_t& consume_len) {
+auto STRUCT_PACK_INLINE deserialize(const Byte* data, std::size_t size,
+                                    std::size_t& consume_len) {
   expected<T, std::errc> ret;
   unpacker o(data, size);
   auto ec = o.deserialize(ret.value());
