@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+
+message Test1 {
+  int32 a = 1;
+}
+message Test2 {
+  string b = 2;
+}
+message Test3 {
+  Test1 c = 3;
+}
+
+message Test4 {
+  string d = 4;
+  repeated int32 e = 5;
+}
+
+message MyTestFloat {
+  float a = 1;
+  float b = 2;
+  float c = 3;
+  float d = 4;
+  float e = 5;
+}
