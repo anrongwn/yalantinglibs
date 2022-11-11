@@ -364,20 +364,6 @@ class packer {
   std::size_t max_;
 };
 
-#define GET_FIELD_WIRE_TYPE(i)                                                 \
-  constexpr auto FieldNumber = i;                                              \
-  constexpr auto I = FieldNumber - first_field_number<T>;                      \
-  using T_Field =                                                              \
-      std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>; \
-  constexpr auto field_wire_type = get_wire_type<T_Field>();
-
-#define PARSE_FIELD(i)                  \
-  GET_FIELD_WIRE_TYPE(i)                \
-  if (field_wire_type != wire_type) {   \
-    return std::errc::invalid_argument; \
-  }                                     \
-  return deserialize_one<T, FieldNumber, field_wire_type>(t);
-
 template <detail::struct_pack_byte Byte>
 class unpacker {
  public:
@@ -392,29 +378,54 @@ class unpacker {
   std::size_t consume_len() const { return pos_; }
 
  private:
-  template <typename T, std::size_t FieldNumber>
-  consteval auto get() {
-    constexpr auto I = FieldNumber - first_field_number<T>;
-    using T_Field =
-        std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>;
-    constexpr auto field_wire_type = get_wire_type<T_Field>();
-    return field_wire_type;
-  }
   template <typename T>
   constexpr std::errc deserialize_one(T& t) {
+    constexpr auto Count = detail::member_count<T>();
+    static_assert(Count == 1);
     assert(pos_ < size_);
     auto tag = data_[pos_];
     uint8_t field_number = uint8_t(data_[pos_]) >> 3;
     auto wire_type =
         static_cast<wire_type_t>(uint8_t(data_[pos_]) & 0b0000'0111);
     pos_++;
-    assert(field_number <= detail::member_count<T>());
     if (field_number == 1) {
-      PARSE_FIELD(1)
+      const auto FieldNumber = 1;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 2) {
+      const auto FieldNumber = 2;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
     }
     else {
       assert(false || "not support now");
       return std::errc::function_not_supported;
+    }
+  }
+
+  template <typename T, std::size_t FieldNumber>
+  std::errc deserialize_one(T& t, wire_type_t wire_type) {
+    constexpr auto Count = detail::member_count<T>();
+    if constexpr (FieldNumber < first_field_number<T> ||
+                  Count < FieldNumber - first_field_number<T>) {
+      assert(false || "not support now");
+      return std::errc::invalid_argument;
+    }
+    else {
+      constexpr auto I = FieldNumber - first_field_number<T>;
+      if constexpr (I < Count) {
+        static_assert(I < Count);
+        using T_Field = std::tuple_element_t<I, decltype(detail::get_types(
+                                                    std::declval<T>()))>;
+        constexpr auto field_wire_type = get_wire_type<T_Field>();
+        if (field_wire_type != wire_type) {
+          return std::errc::invalid_argument;
+        }
+        return deserialize_one<T, FieldNumber, field_wire_type>(t);
+      }
+      else {
+        assert(false || "not support now");
+        return std::errc::invalid_argument;
+      }
     }
   }
   template <typename T, std::size_t FieldNumber, wire_type_t WireType>
@@ -496,12 +507,26 @@ class unpacker {
 
   template <typename T, typename Field>
   std::errc deserialize_len(T& t, Field& f) {
-    if constexpr (std::same_as<Field, std::string>) {
+    if constexpr (detail::optional<Field>) {
+      using value_type = typename Field::value_type;
+      value_type inner;
+      auto ec = deserialize_len(t, inner);
+      if (ec != std::errc{}) {
+        return ec;
+      }
+      f = inner;
+      return ec;
+    }
+    else if constexpr (std::same_as<Field, std::string>) {
       uint64_t sz = 0;
-      deserialize_varint(t, sz);
+      auto ec = deserialize_varint(t, sz);
+      if (ec != std::errc{}) {
+        return ec;
+      }
       f.resize(sz);
       std::memcpy(f.data(), data_ + pos_, sz);
       pos_ += sz;
+      return std::errc{};
     }
     else {
       static_assert(!sizeof(Field), "not supported");

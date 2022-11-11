@@ -88,13 +88,13 @@ TEST_CASE("testing test2") {
     buf += t.b.value();
     auto b = serialize<std::string>(t);
     CHECK(buf == b);
-    //    std::size_t len = 0;
-    //    auto d_t_ret = deserialize<test2>(b.data(), b.size(), len);
-    //    CHECK(len == 9);
-    //    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
-    //    auto d_t = d_t_ret.value();
-    //    REQUIRE(d_t.b.has_value());
-    //    CHECK(t.b == d_t.b);
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<test2>(b.data(), b.size(), len);
+    CHECK(len == 9);
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    REQUIRE(d_t.b.has_value());
+    CHECK(t.b == d_t.b);
   }
 }
 TEST_CASE("testing test3") {
