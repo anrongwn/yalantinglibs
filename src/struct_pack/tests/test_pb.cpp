@@ -214,5 +214,15 @@ TEST_CASE("testing float") {
                   0x2d, 0x00,       0x04,       (char)0xf1, 0x47};
   auto b = serialize<std::string>(t);
   CHECK(buf == b);
+  std::size_t len = 0;
+  auto d_t_ret = deserialize<my_test_float>(b.data(), b.size(), len);
+  CHECK(len == 20);
+  REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+  auto d_t = d_t_ret.value();
+  CHECK(t.a == d_t.a);
+  CHECK(t.b == d_t.b);
+  CHECK(t.c == d_t.c);
+  CHECK(t.d == d_t.d);
+  CHECK(t.e == d_t.e);
 }
 TEST_SUITE_END;

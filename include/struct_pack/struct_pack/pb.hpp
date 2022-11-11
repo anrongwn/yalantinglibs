@@ -518,7 +518,7 @@ class unpacker {
 
   template <typename T, typename Field>
   std::errc deserialize_fixedint(T& t, Field& f) {
-    if (detail::optional<Field>) {
+    if constexpr (detail::optional<Field>) {
       return deserialize_fixedint(t, f.value());
     }
     else {
