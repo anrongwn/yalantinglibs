@@ -275,6 +275,35 @@ TEST_CASE("testing float") {
   CHECK(t.d == d_t.d);
   CHECK(t.e == d_t.e);
 }
+
+struct my_test_int32 {
+  std::optional<varint32_t> a;
+};
+
+TEST_CASE("testing int32") {
+  std::string buf{0x08, (char)0x80, 0x01};
+  MyTestInt32 pb_t;
+  pb_t.set_a(128);
+  auto pb_buf = pb_t.SerializeAsString();
+  REQUIRE(pb_buf == buf);
+
+  my_test_int32 t;
+  t.a = 128;
+
+  auto size = get_needed_size(t);
+  REQUIRE(size == pb_buf.size());
+
+  auto b = serialize<std::string>(t);
+  CHECK(b == buf);
+
+  std::size_t len = 0;
+  auto d_t_ret = deserialize<my_test_int32>(b.data(), b.size(), len);
+  REQUIRE(len == b.size());
+  REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+  auto d_t = d_t_ret.value();
+  CHECK(d_t.a == t.a);
+}
+
 struct my_test_enum {
   enum class Color { Red, Green, Blue, Enum127 = 127, Enum128 = 128 };
   std::optional<Color> color;
@@ -334,19 +363,18 @@ TEST_CASE("testing enum") {
     auto b = serialize<std::string>(t);
     CHECK(b == pb_buf);
   }
-  // FIXME
-  //    SUBCASE("Enum128") {
-  //      MyTestEnum pb_t;
-  //      pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Enum128);
-  //      auto pb_buf = pb_t.SerializeAsString();
-  //
-  //      my_test_enum t;
-  //      t.color = my_test_enum::Color::Enum127;
-  //      auto size = get_needed_size(t);
-  //      REQUIRE(size == pb_buf.size());
-  //
-  //      auto b = serialize<std::string>(t);
-  //      CHECK(b == pb_buf);
-  //    }
+  SUBCASE("Enum128") {
+    MyTestEnum pb_t;
+    pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Enum128);
+    auto pb_buf = pb_t.SerializeAsString();
+
+    my_test_enum t;
+    t.color = my_test_enum::Color::Enum128;
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == pb_buf);
+  }
 }
 TEST_SUITE_END;

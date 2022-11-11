@@ -324,9 +324,7 @@ class packer {
           if (v == 0) {
             return;
           }
-          if (v <= 127) {
-            data_[pos_++] = '0';
-          }
+          data_[pos_++] = '0';
           serialize_varint(v);
         }
         else {

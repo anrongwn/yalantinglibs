@@ -24,6 +24,10 @@ message MyTestFloat {
   float e = 5;
 }
 
+message MyTestInt32 {
+  int32 a = 1;
+}
+
 message MyTestEnum {
   enum Color {
     Red = 0;
