@@ -147,7 +147,16 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
     }
   }
   else if constexpr (VARINT<T>) {
-    return 1 + calculate_varint_size(t);
+    if constexpr (std::is_enum_v<T>) {
+      auto v = static_cast<uint64_t>(t);
+      if (v == 0) {
+        return 0;
+      }
+      return 1 + calculate_varint_size(v);
+    }
+    else {
+      return 1 + calculate_varint_size(t);
+    }
   }
   else if constexpr (LEN<T>) {
     if constexpr (std::same_as<T, std::string>) {
@@ -275,6 +284,24 @@ class packer {
       const auto& [a1, a2, a3, a4, a5] = t;
       return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
     }
+    else if constexpr (Count == 6) {
+      const auto& [a1, a2, a3, a4, a5, a6] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
+    }
+    else if constexpr (Count == 7) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
+    }
+    else if constexpr (Count == 8) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
+    }
+    else if constexpr (Count == 9) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+    }
     else {
       static_assert(!sizeof(T), "wait for add hard code");
     }
@@ -292,8 +319,20 @@ class packer {
     else {
       constexpr auto wire_type = get_wire_type<T>();
       if constexpr (VARINT<T>) {
-        write_tag(field_number, wire_type);
-        serialize_varint(t);
+        if constexpr (std::is_enum_v<T>) {
+          auto v = static_cast<uint64_t>(t);
+          if (v == 0) {
+            return;
+          }
+          if (v <= 127) {
+            data_[pos_++] = '0';
+          }
+          serialize_varint(v);
+        }
+        else {
+          write_tag(field_number, wire_type);
+          serialize_varint(t);
+        }
       }
       else if constexpr (I64<T> || I32<T>) {
         if (t == 0) {

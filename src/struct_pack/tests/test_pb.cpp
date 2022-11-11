@@ -275,4 +275,78 @@ TEST_CASE("testing float") {
   CHECK(t.d == d_t.d);
   CHECK(t.e == d_t.e);
 }
+struct my_test_enum {
+  enum class Color { Red, Green, Blue, Enum127 = 127, Enum128 = 128 };
+  std::optional<Color> color;
+};
+template <>
+constexpr std::size_t first_field_number<my_test_enum> = 2;
+TEST_CASE("testing enum") {
+  SUBCASE("Red") {
+    MyTestEnum pb_t;
+    pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Red);
+    auto pb_buf = pb_t.SerializeAsString();
+
+    my_test_enum t;
+    t.color = my_test_enum::Color::Red;
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == pb_buf);
+  }
+  SUBCASE("Green") {
+    MyTestEnum pb_t;
+    pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Green);
+    auto pb_buf = pb_t.SerializeAsString();
+
+    my_test_enum t;
+    t.color = my_test_enum::Color::Green;
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == pb_buf);
+  }
+  SUBCASE("Blue") {
+    MyTestEnum pb_t;
+    pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Blue);
+    auto pb_buf = pb_t.SerializeAsString();
+
+    my_test_enum t;
+    t.color = my_test_enum::Color::Blue;
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == pb_buf);
+  }
+  SUBCASE("Enum127") {
+    MyTestEnum pb_t;
+    pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Enum127);
+    auto pb_buf = pb_t.SerializeAsString();
+
+    my_test_enum t;
+    t.color = my_test_enum::Color::Enum127;
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == pb_buf);
+  }
+  // FIXME
+  //    SUBCASE("Enum128") {
+  //      MyTestEnum pb_t;
+  //      pb_t.set_color(MyTestEnum_Color::MyTestEnum_Color_Enum128);
+  //      auto pb_buf = pb_t.SerializeAsString();
+  //
+  //      my_test_enum t;
+  //      t.color = my_test_enum::Color::Enum127;
+  //      auto size = get_needed_size(t);
+  //      REQUIRE(size == pb_buf.size());
+  //
+  //      auto b = serialize<std::string>(t);
+  //      CHECK(b == pb_buf);
+  //    }
+}
 TEST_SUITE_END;

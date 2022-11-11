@@ -23,3 +23,14 @@ message MyTestFloat {
   float d = 4;
   float e = 5;
 }
+
+message MyTestEnum {
+  enum Color {
+    Red = 0;
+    Green = 1;
+    Blue = 2;
+    Enum127 = 127;
+    Enum128 = 128;
+  }
+  Color color = 6;
+}
