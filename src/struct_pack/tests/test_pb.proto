@@ -38,3 +38,7 @@ message MyTestEnum {
   }
   Color color = 6;
 }
+
+message MyTestRepeatedMessage {
+  repeated MyTestFloat fs = 1;
+}

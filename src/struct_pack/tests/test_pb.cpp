@@ -13,7 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <valarray>
+
 #include "doctest.h"
+#include "hex_printer.hpp"
 #include "struct_pack/struct_pack/pb.hpp"
 #include "test_pb.pb.h"
 using namespace doctest;
@@ -238,6 +241,11 @@ struct my_test_float {
   float c;
   float d;
   float e;
+  bool operator==(const my_test_float &rhs) const {
+    std::valarray<float> lh({a, b, c, d, e});
+    std::valarray<float> rh({rhs.a, rhs.b, rhs.c, rhs.d, rhs.e});
+    return (std::abs(lh - rh) < 0.05f).min();
+  };
 };
 TEST_CASE("testing float") {
   // [20] 15 00 00 80 3f 1d 00 00 80 bf 25 b6 f3 9d 3f 2d 00 04 f1 47
@@ -418,4 +426,69 @@ TEST_CASE("testing enum") {
     CHECK(t.color == d_t.color);
   }
 }
+
+struct my_test_repeated_message {
+  std::vector<my_test_float> fs;
+};
+TEST_CASE("testing nested repeated message") {
+  SUBCASE("one") {
+    MyTestRepeatedMessage pb_t;
+    {
+      auto f1 = pb_t.add_fs();
+      f1->set_a(1);
+      f1->set_b(2);
+      f1->set_c(3);
+    }
+    auto pb_b = pb_t.SerializeAsString();
+
+    MyTestRepeatedMessage pb_d_t;
+    auto ok = pb_d_t.ParseFromArray(pb_b.data(), pb_b.size());
+    REQUIRE(ok);
+
+    my_test_repeated_message t{};
+    t.fs = {{1, 2, 3}};
+    auto b = serialize<std::string>(t);
+    REQUIRE(b == pb_b);
+    std::size_t len = 0;
+    auto d_t_ret =
+        deserialize<my_test_repeated_message>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(t.fs == d_t.fs);
+  }
+  SUBCASE("two") {
+    MyTestRepeatedMessage pb_t;
+    {
+      auto f1 = pb_t.add_fs();
+      f1->set_a(1);
+      f1->set_b(2);
+      f1->set_c(3);
+    }
+    {
+      auto f1 = pb_t.add_fs();
+      f1->set_a(4);
+      f1->set_b(5);
+      f1->set_c(6);
+    }
+    auto pb_b = pb_t.SerializeAsString();
+
+    MyTestRepeatedMessage pb_d_t;
+    auto ok = pb_d_t.ParseFromArray(pb_b.data(), pb_b.size());
+    REQUIRE(ok);
+
+    my_test_repeated_message t{};
+    t.fs = {{1, 2, 3}, {4, 5, 6}};
+    auto b = serialize<std::string>(t);
+    REQUIRE(b == pb_b);
+    std::size_t len = 0;
+    auto d_t_ret =
+        deserialize<my_test_repeated_message>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(t.fs == d_t.fs);
+  }
+}
+
 TEST_SUITE_END;

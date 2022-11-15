@@ -726,9 +726,9 @@ class unpacker {
         return ec;
       }
       using value_type = typename Field::value_type;
-      auto max_pos = pos_ + sz;
-      while (pos_ < max_pos) {
-        if constexpr (VARINT<value_type>) {
+      if constexpr (VARINT<value_type>) {
+        auto max_pos = pos_ + sz;
+        while (pos_ < max_pos) {
           uint64_t val = 0;
           ec = deserialize_varint(t, val);
           if (ec != std::errc{}) {
@@ -736,16 +736,19 @@ class unpacker {
           }
           f.push_back(val);
         }
-        else {
-          value_type val;
-          ec = deserialize_one(val);
-          if (ec != std::errc{}) {
-            return ec;
-          }
-          f.push_back(val);
-        }
+        return ec;
       }
-      return ec;
+      else {
+        value_type val{};
+        unpacker o(data_ + pos_, sz);
+        ec = o.template deserialize(val);
+        if (ec != std::errc{}) {
+          return ec;
+        }
+        f.push_back(val);
+        pos_ += sz;
+        return ec;
+      }
     }
     else {
       uint64_t sz = 0;
