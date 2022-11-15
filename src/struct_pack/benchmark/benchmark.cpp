@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 #include <atomic>
+#ifdef HAVE_MSGPACK
 #include <msgpack.hpp>
+#endif
 #include <numeric>
 #include <thread>
 #include <valarray>
@@ -53,7 +55,9 @@ struct person {
   std::string name;
   int age;
   double salary;
+#ifdef HAVE_MSGPACK
   MSGPACK_DEFINE(id, name, age, salary);
+#endif
 };
 
 template <typename T>
@@ -92,7 +96,9 @@ struct rect {
   T y = get_max<T>();
   T width = get_max<T>();
   T height = get_max<T>();
+#ifdef HAVE_MSGPACK
   MSGPACK_DEFINE(x, y, width, height);
+#endif
 };
 
 enum Color : uint8_t { Red, Green, Blue };
@@ -107,7 +113,9 @@ struct Vec3 {
     std::valarray<float> rh({rhs.x, rhs.y, rhs.z});
     return (std::abs(lh - rh) < 0.05f).min();
   };
+#ifdef HAVE_MSGPACK
   MSGPACK_DEFINE(x, y, z);
+#endif
 };
 
 struct Weapon {
@@ -117,7 +125,9 @@ struct Weapon {
   bool operator==(const Weapon &rhs) const {
     return name == rhs.name && damage == rhs.damage;
   };
+#ifdef HAVE_MSGPACK
   MSGPACK_DEFINE(name, damage);
+#endif
 };
 
 struct Monster {
@@ -137,8 +147,10 @@ struct Monster {
            color == rhs.color && weapons == rhs.weapons &&
            equipped == rhs.equipped && path == rhs.path;
   };
+#ifdef HAVE_MSGPACK
   MSGPACK_DEFINE(pos, mana, hp, name, inventory, (int &)color, weapons,
                  equipped, path);
+#endif
 };
 
 template <typename T>
@@ -170,8 +182,10 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
   std::cout << "------- start benchmark " << tag << " -------\n";
 
   buffer1.reserve(struct_pack::get_needed_size(t));
+#ifdef HAVE_MSGPACK
   msgpack::pack(buffer2, t);
   buffer2.reserve(buffer2.size() * SAMPLES_COUNT);
+#endif
   auto pb_sz = p.SerializeAsString().size();
   buffer3.reserve(pb_sz * SAMPLES_COUNT);
   buffer4.reserve(struct_pack::pb::get_needed_size(bin));
@@ -190,6 +204,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       }
       no_op();
     }
+#ifdef HAVE_MSGPACK
     {
       ScopedTimer timer("serialize msgpack   ", arr[1][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
@@ -197,6 +212,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       }
       no_op();
     }
+#endif
     {
       ScopedTimer timer("serialize protobuf", arr[2][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
@@ -213,8 +229,9 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       no_op();
     }
   }
-
+#ifdef HAVE_MSGPACK
   msgpack::unpacked unpacked;
+#endif
   for (int i = 0; i < 10; ++i) {
     {
       ScopedTimer timer("deserialize structpack", arr[3][i]);
@@ -227,6 +244,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
         no_op();
       }
     }
+#ifdef HAVE_MSGPACK
     {
       ScopedTimer timer("deserialize msgpack   ", arr[4][i]);
       for (size_t pos = 0, j = 0; j < SAMPLES_COUNT; j++) {
@@ -235,6 +253,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
         no_op();
       }
     }
+#endif
     {
       ScopedTimer timer("deserialize protobuf", arr[5][i]);
       for (size_t pos = 0, j = 0; j < SAMPLES_COUNT; j++) {
@@ -264,40 +283,46 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
             << "struct_pack serialize average: " << get_avg(arr[0])
             << ", deserialize average:  " << get_avg(arr[3])
             << ", buf size: " << buffer1.size() / SAMPLES_COUNT << "\n";
+#ifdef HAVE_MSGPACK
   std::cout << tag << " "
-            << "msgpack serialize average:     " << get_avg(arr[1])
+            << "msgpack     serialize average: " << get_avg(arr[1])
             << ", deserialize average: " << get_avg(arr[4])
             << ", buf size: " << buffer2.size() / SAMPLES_COUNT << "\n";
+#endif
   std::cout << tag << " "
-            << "protobuf serialize average:    " << get_avg(arr[2])
+            << "protobuf    serialize average: " << get_avg(arr[2])
             << ", deserialize average: " << get_avg(arr[5])
             << ", buf size: " << buffer3.size() / SAMPLES_COUNT << "\n";
   std::cout << tag << " "
-            << "struct_pack pb serialize average:    " << get_avg(arr[6])
+            << "struct_pb   serialize average: " << get_avg(arr[6])
             << ", deserialize average: " << get_avg(arr[7])
             << ", buf size: " << buffer3.size() / SAMPLES_COUNT << "\n";
+#ifdef HAVE_MSGPACK
   std::cout << tag << " "
             << "struct_pack serialize is   "
             << (double)get_avg(arr[1]) / get_avg(arr[0])
             << " times faster than msgpack\n";
+#endif
   std::cout << tag << " "
             << "struct_pack serialize is   "
             << (double)get_avg(arr[2]) / get_avg(arr[0])
             << " times faster than protobuf\n";
   std::cout << tag << " "
-            << "struct_pack pb serialize is   "
+            << "struct_pb   serialize is   "
             << (double)get_avg(arr[6]) / get_avg(arr[0])
             << " times faster than protobuf\n";
+#ifdef HAVE_MSGPACK
   std::cout << tag << " "
             << "struct_pack deserialize is "
             << (double)get_avg(arr[4]) / get_avg(arr[3])
             << " times faster than msgpack\n";
+#endif
   std::cout << tag << " "
             << "struct_pack deserialize is "
             << (double)get_avg(arr[5]) / get_avg(arr[3])
             << " times faster than protobuf\n";
   std::cout << tag << " "
-            << "struct_pack pb deserialize is "
+            << "struct_pb   deserialize is "
             << (double)get_avg(arr[7]) / get_avg(arr[3])
             << " times faster than protobuf\n";
   std::cout << "------- end benchmark   " << tag << " -------\n\n";

@@ -1,5 +1,5 @@
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
-find_package(Protobuf REQUIRED)
+find_package(Protobuf)
 add_executable(test_serialize
         test_serialize.cpp
         test_tuplet.cpp
@@ -17,18 +17,22 @@ target_compile_definitions(test_serialize PRIVATE
         )
 target_link_libraries(test_serialize PRIVATE
         libstruct_pack
-        protobuf::libprotobuf
         doctest
         )
-protobuf_generate_cpp(TEST_SERIALIZE_PROTO_SRCS
-        TEST_SERIALIZE_PROTO_HDRS
-        test_pb.proto
-        ../benchmark/benchmark.proto
-        )
-target_include_directories(test_serialize PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
-target_sources(test_serialize PRIVATE
-        ${TEST_SERIALIZE_PROTO_SRCS}
-        ${TEST_SERIALIZE_PROTO_HDRS}
-        )
-message(STATUS "TEST_SERIALIZE_PROTO_SRCS: ${TEST_SERIALIZE_PROTO_SRCS}")
-message(STATUS "TEST_SERIALIZE_PROTO_HDRS: ${TEST_SERIALIZE_PROTO_HDRS}")
+if (Protobuf_FOUND)
+    message(STATUS "Protobuf_FOUND: ${Protobuf_FOUND}")
+    target_compile_definitions(test_serialize PRIVATE HAVE_PROTOBUF)
+    target_link_libraries(test_serialize PRIVATE protobuf::libprotobuf)
+    protobuf_generate_cpp(TEST_SERIALIZE_PROTO_SRCS
+            TEST_SERIALIZE_PROTO_HDRS
+            test_pb.proto
+            ../benchmark/benchmark.proto
+            )
+    target_include_directories(test_serialize PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+    target_sources(test_serialize PRIVATE
+            ${TEST_SERIALIZE_PROTO_SRCS}
+            ${TEST_SERIALIZE_PROTO_HDRS}
+            )
+    message(STATUS "TEST_SERIALIZE_PROTO_SRCS: ${TEST_SERIALIZE_PROTO_SRCS}")
+    message(STATUS "TEST_SERIALIZE_PROTO_HDRS: ${TEST_SERIALIZE_PROTO_HDRS}")
+endif ()
