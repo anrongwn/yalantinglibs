@@ -21,6 +21,7 @@
 #include <thread>
 #include <valarray>
 
+#include "../tests/hex_printer.hpp"
 #include "config.hpp"
 #include "native_pb.hpp"
 #include "no_op.h"
@@ -228,6 +229,12 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       }
       no_op();
     }
+    if (buffer3 != buffer4) {
+      print_hex(buffer3);
+      print_hex(buffer4);
+      std::cout << "ERROR" << std::endl;
+      std::exit(0);
+    }
   }
 #ifdef HAVE_MSGPACK
   msgpack::unpacked unpacked;
@@ -265,7 +272,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       }
     }
     {
-      ScopedTimer timer("deserialize structpack", arr[7][i]);
+      ScopedTimer timer("deserialize struct_pb", arr[7][i]);
       std::size_t len = 0;
       for (size_t j = 0; j < SAMPLES_COUNT; j++) {
         BinPB d_bin{};
@@ -275,6 +282,10 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
           exit(1);
         }
         no_op();
+        if (d_bin != bin) {
+          std::cout << "ERROR de" << std::endl;
+          std::exit(0);
+        }
       }
     }
   }
@@ -309,7 +320,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
             << " times faster than protobuf\n";
   std::cout << tag << " "
             << "struct_pb   serialize is   "
-            << (double)get_avg(arr[6]) / get_avg(arr[0])
+            << (double)get_avg(arr[2]) / get_avg(arr[6])
             << " times faster than protobuf\n";
 #ifdef HAVE_MSGPACK
   std::cout << tag << " "
@@ -323,7 +334,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
             << " times faster than protobuf\n";
   std::cout << tag << " "
             << "struct_pb   deserialize is "
-            << (double)get_avg(arr[7]) / get_avg(arr[3])
+            << (double)get_avg(arr[5]) / get_avg(arr[7])
             << " times faster than protobuf\n";
   std::cout << "------- end benchmark   " << tag << " -------\n\n";
 }
