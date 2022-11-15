@@ -19,10 +19,10 @@
 using namespace doctest;
 using namespace struct_pack::pb;
 struct test1 {
-  std::optional<varint32_t> a;
+  varint32_t a;
 };
 struct test2 {
-  std::optional<std::string> b;
+  std::string b;
 };
 template <>
 constexpr std::size_t first_field_number<test2> = 2;
@@ -32,14 +32,14 @@ struct test3 {
 template <>
 constexpr std::size_t first_field_number<test3> = 3;
 struct test4 {
-  std::optional<std::string> d;
+  std::string d;
   std::vector<varint32_t> e;
 };
 template <>
 constexpr std::size_t first_field_number<test4> = 4;
 TEST_SUITE_BEGIN("test pb");
 TEST_CASE("testing test1") {
-  test1 t;
+  test1 t{};
   SUBCASE("empty") {
     auto size = get_needed_size(t);
     REQUIRE(size == 0);
@@ -69,12 +69,11 @@ TEST_CASE("testing test1") {
     CHECK(len == 3);
     REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
     auto d_t = d_t_ret.value();
-    REQUIRE(d_t.a.has_value());
     CHECK(t.a == d_t.a);
   }
 }
 TEST_CASE("testing test2") {
-  test2 t;
+  test2 t{};
   SUBCASE("empty") {
     auto size = get_needed_size(t);
     REQUIRE(size == 0);
@@ -106,12 +105,11 @@ TEST_CASE("testing test2") {
     CHECK(len == 9);
     REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
     auto d_t = d_t_ret.value();
-    REQUIRE(d_t.b.has_value());
     CHECK(t.b == d_t.b);
   }
 }
 TEST_CASE("testing test3") {
-  test3 t;
+  test3 t{};
   SUBCASE("empty") {
     auto size = get_needed_size(t);
     REQUIRE(size == 0);
@@ -148,7 +146,7 @@ TEST_CASE("testing test3") {
   }
 }
 TEST_CASE("testing test4") {
-  test4 t;
+  test4 t{};
   SUBCASE("empty") {
     auto size = get_needed_size(t);
     REQUIRE(size == 0);
@@ -177,7 +175,6 @@ TEST_CASE("testing test4") {
     CHECK(len == 3);
     REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
     auto d_t = d_t_ret.value();
-    CHECK(!d_t.d.has_value());
     REQUIRE(!d_t.e.empty());
     CHECK(t.e.size() == d_t.e.size());
     CHECK(t.e[0] == d_t.e[0]);
@@ -202,8 +199,6 @@ TEST_CASE("testing test4") {
     CHECK(len == 4);
     REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
     auto d_t = d_t_ret.value();
-    CHECK(d_t.e.empty());
-    REQUIRE(d_t.d.has_value());
     CHECK(t.d == d_t.d);
   }
   SUBCASE("has value") {

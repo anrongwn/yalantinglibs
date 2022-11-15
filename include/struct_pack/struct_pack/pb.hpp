@@ -35,6 +35,8 @@ class varint {
     return *this;
   }
   auto operator<=>(const varint&) const = default;
+  bool operator==(const varint<T>& t) const { return val == t.val; }
+  bool operator==(T t) const { return val == t; }
   auto operator&(uint8_t mask) const {
     T new_val = val & mask;
     return varint(new_val);
@@ -168,11 +170,17 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       return 1 + calculate_varint_size(v);
     }
     else {
+      if (t == 0) {
+        return 0;
+      }
       return 1 + calculate_varint_size(t);
     }
   }
   else if constexpr (LEN<T>) {
     if constexpr (std::same_as<T, std::string>) {
+      if (t.empty()) {
+        return 0;
+      }
       return 1 + calculate_varint_size(t.size()) + t.size();
     }
     else if constexpr (detail::map_container<T> || detail::container<T>) {
@@ -374,6 +382,9 @@ class packer {
           serialize_varint(v);
         }
         else {
+          if (t == 0) {
+            return;
+          }
           write_tag(field_number, wire_type);
           serialize_varint(t);
         }
@@ -388,6 +399,9 @@ class packer {
       }
       else if constexpr (LEN<T>) {
         if constexpr (std::same_as<T, std::string>) {
+          if (t.empty()) {
+            return;
+          }
           write_tag(field_number, wire_type);
           serialize_varint(t.size());
           assert(pos_ + t.size() <= max_);
@@ -712,7 +726,6 @@ class unpacker {
         return ec;
       }
       using value_type = typename Field::value_type;
-      static_assert(std::same_as<value_type, varint32_t>);
       auto max_pos = pos_ + sz;
       while (pos_ < max_pos) {
         if constexpr (VARINT<value_type>) {
@@ -752,6 +765,7 @@ class unpacker {
 
   template <typename T, std::size_t FieldNumber>
   auto&& get_field(T& t) {
+    static_assert(FieldNumber <= MaxFieldNumber);
     static_assert(!detail::optional<T>);
     constexpr auto Count = detail::member_count<T>();
     constexpr std::size_t Index = FieldNumber - first_field_number<T>;
@@ -775,6 +789,55 @@ class unpacker {
     else if constexpr (Count == 5) {
       auto&& [a1, a2, a3, a4, a5] = t;
       return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
+    }
+    else if constexpr (Count == 6) {
+      auto&& [a1, a2, a3, a4, a5, a6] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
+    }
+    else if constexpr (Count == 7) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
+    }
+    else if constexpr (Count == 8) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
+    }
+    else if constexpr (Count == 9) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+    }
+    else if constexpr (Count == 10) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+    }
+    else if constexpr (Count == 11) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
+    }
+    else if constexpr (Count == 12) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a12));
+    }
+    else if constexpr (Count == 13) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
+                                                   a8, a9, a10, a12, a13));
+    }
+    else if constexpr (Count == 14) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
+                                                   a8, a9, a10, a12, a13, a14));
+    }
+    else if constexpr (Count == 15) {
+      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,
+              a15] = t;
+      return std::get<Index>(std::forward_as_tuple(
+          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a12, a13, a14, a15));
     }
     else {
       static_assert(!sizeof(T), "wait for add hard code");
