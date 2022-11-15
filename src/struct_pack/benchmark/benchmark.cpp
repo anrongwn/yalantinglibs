@@ -229,12 +229,7 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       }
       no_op();
     }
-    if (buffer3 != buffer4) {
-      print_hex(buffer3);
-      print_hex(buffer4);
-      std::cout << "ERROR" << std::endl;
-      std::exit(0);
-    }
+    assert(buffer3 == buffer4);
   }
 #ifdef HAVE_MSGPACK
   msgpack::unpacked unpacked;
@@ -274,18 +269,17 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
     {
       ScopedTimer timer("deserialize struct_pb", arr[7][i]);
       std::size_t len = 0;
+      std::size_t pos = 0;
       for (size_t j = 0; j < SAMPLES_COUNT; j++) {
-        BinPB d_bin{};
-        auto ec =
-            struct_pack::pb::deserialize_to_with_offset(d_bin, buffer4, len);
-        if (ec != std::errc{}) [[unlikely]] {
+        auto ret = struct_pack::pb::deserialize<BinPB>(buffer4.data() + pos,
+                                                       pb_sz, len);
+        assert(len == pb_sz);
+        if (!ret) [[unlikely]] {
           exit(1);
         }
+        pos += pb_sz;
         no_op();
-        if (d_bin != bin) {
-          std::cout << "ERROR de" << std::endl;
-          std::exit(0);
-        }
+        assert(ret.template value() == bin);
       }
     }
   }
