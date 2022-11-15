@@ -15,50 +15,81 @@
  */
 #pragma once
 #include <optional>
+#include <valarray>
 
 #include "struct_pack/struct_pack/pb.hpp"
 namespace struct_pb {
 struct Vec3 {
-  std::optional<float> x;
-  std::optional<float> y;
-  std::optional<float> z;
+  float x;
+  float y;
+  float z;
+
+  bool operator==(const Vec3 &rhs) const {
+    std::valarray<float> lh({x, y, z});
+    std::valarray<float> rh({rhs.x, rhs.y, rhs.z});
+    return (std::abs(lh - rh) < 0.05f).min();
+  };
 };
 struct Weapon {
-  std::optional<std::string> name;
-  std::optional<struct_pack::pb::varint32_t> damage;
+  std::string name;
+  struct_pack::pb::varint32_t damage;
+  bool operator==(const Weapon &rhs) const {
+    return name == rhs.name && damage == rhs.damage;
+  };
 };
 struct Monster {
   std::optional<Vec3> pos;
-  std::optional<struct_pack::pb::varint32_t> mana;
-  std::optional<struct_pack::pb::varint32_t> hp;
-  std::optional<std::string> name;
-  std::optional<std::string> inventory;
+  struct_pack::pb::varint32_t mana;
+  struct_pack::pb::varint32_t hp;
+  std::string name;
+  std::string inventory;
   enum class Color { Red, Green, Blue };
-  std::optional<Color> color;
+  Color color;
   std::vector<Weapon> weapons;
   std::optional<Weapon> equipped;
   std::vector<Vec3> path;
+  bool operator==(const Monster &rhs) const {
+    return pos == rhs.pos && mana == rhs.mana && hp == rhs.hp &&
+           name == rhs.name && inventory == rhs.inventory &&
+           color == rhs.color && weapons == rhs.weapons &&
+           equipped == rhs.equipped && path == rhs.path;
+  };
 };
 struct Monsters {
   std::vector<Monster> monsters;
+  bool operator==(const Monsters &) const = default;
 };
 struct rect32 {
-  std::optional<struct_pack::pb::varint32_t> x;
-  std::optional<struct_pack::pb::varint32_t> y;
-  std::optional<struct_pack::pb::varint32_t> width;
-  std::optional<struct_pack::pb::varint32_t> height;
+  struct_pack::pb::varint32_t x;
+  struct_pack::pb::varint32_t y;
+  struct_pack::pb::varint32_t width;
+  struct_pack::pb::varint32_t height;
+  bool operator==(const rect32 &rhs) const {
+    return x == rhs.x && y == rhs.y && width == rhs.width &&
+           height == rhs.height;
+  }
 };
 struct rect32s {
   std::vector<rect32> rect32_list;
+  bool operator==(const rect32s &rhs) const {
+    return rect32_list == rhs.rect32_list;
+  }
 };
 struct person {
-  std::optional<struct_pack::pb::varint32_t> id;
-  std::optional<std::string> name;
-  std::optional<struct_pack::pb::varint32_t> age;
-  std::optional<double> salary;
+  struct_pack::pb::varint32_t id;
+  std::string name;
+  struct_pack::pb::varint32_t age;
+  double salary;
+  bool operator==(const person &rhs) const {
+    return id == rhs.id && name == rhs.name && age == rhs.age &&
+           salary == rhs.salary;
+  }
 };
 struct persons {
   std::vector<person> person_list;
+  bool operator==(const persons &rhs) const {
+    return person_list == rhs.person_list;
+  }
 };
 auto create_rects(std::size_t object_count) {
   rect32s rcs;

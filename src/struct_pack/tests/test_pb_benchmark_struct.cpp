@@ -17,12 +17,10 @@
 #include "../benchmark/native_pb.hpp"
 #include "../benchmark/struct_pb.hpp"
 #include "doctest.h"
+#include "hex_printer.hpp"
 #include "struct_pack/struct_pack/pb.hpp"
 using namespace doctest;
 using namespace struct_pack::pb;
-bool operator==(const std::optional<varint32_t>& a, int32_t b) {
-  return int32_t(a.value()) == b;
-}
 bool operator==(const std::optional<struct_pb::Vec3>& a,
                 const mygame::Vec3& b) {
   assert(a.has_value());
@@ -38,8 +36,6 @@ bool operator==(const std::optional<struct_pb::Monster::Color>& a,
 
 bool operator==(const std::optional<struct_pb::Weapon>& a,
                 const mygame::Weapon& b) {
-  assert(a->name.has_value());
-  assert(a->damage.has_value());
   return a->name == b.name() && a->damage == b.damage();
 }
 
@@ -63,27 +59,7 @@ void check_repeated(const std::vector<T>& a,
   bool ret = (a == b);
   REQUIRE(ret);
 }
-// useful for debugging
-void print_hex(uint8_t v) {
-  static std::string hex = "0123456789abcedf";
-  if (v < 16) {
-    std::cout << "0";
-    std::cout << hex[v];
-  }
-  else {
-    auto first = v / 16;
-    auto last = v % 16;
-    std::cout << hex[first] << hex[last];
-  }
-}
-void print_hex(std::string_view sv) {
-  for (char ch : sv) {
-    uint8_t v = ch;
-    print_hex(v);
-    std::cout << " ";
-  }
-  std::cout << std::endl;
-}
+
 TEST_CASE("testing rect") {
   auto my_rects = struct_pb::create_rects(OBJECT_COUNT);
   auto pb_rects = create_rects_pb(OBJECT_COUNT);
@@ -92,13 +68,9 @@ TEST_CASE("testing rect") {
     auto my_rect = my_rects.rect32_list[i];
     auto pb_rect = *(pb_rects.rect32_list().begin() + i);
 
-    REQUIRE(my_rect.x.has_value());
     REQUIRE(my_rect.x == pb_rect.x());
-    REQUIRE(my_rect.y.has_value());
     REQUIRE(my_rect.y == pb_rect.y());
-    REQUIRE(my_rect.width.has_value());
     REQUIRE(my_rect.width == pb_rect.width());
-    REQUIRE(my_rect.height.has_value());
     REQUIRE(my_rect.height == pb_rect.height());
 
     auto pb_buf = pb_rect.SerializeAsString();
@@ -108,6 +80,14 @@ TEST_CASE("testing rect") {
 
     auto my_buf = serialize<std::string>(my_rect);
     REQUIRE(my_buf == pb_buf);
+
+    std::size_t len = 0;
+    auto d_t_ret =
+        deserialize<struct_pb::rect32>(my_buf.data(), my_buf.size(), len);
+    REQUIRE(len == my_buf.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(d_t == my_rect);
   }
 
   auto pb_buf2 = pb_rects.SerializeAsString();
@@ -117,6 +97,18 @@ TEST_CASE("testing rect") {
   auto my_buf2 = serialize<std::string>(my_rects);
   REQUIRE(my_buf2.size() == pb_buf2.size());
   REQUIRE(my_buf2 == pb_buf2);
+
+  std::size_t len = 0;
+  auto d_t_ret =
+      deserialize<struct_pb::rect32s>(my_buf2.data(), my_buf2.size(), len);
+  REQUIRE(len == my_buf2.size());
+  REQUIRE(d_t_ret);
+  auto d_t = d_t_ret.value();
+  CHECK(d_t == my_rects);
+
+  for (int i = 0; i < d_t.rect32_list.size(); ++i) {
+    CHECK(d_t.rect32_list[i] == my_rects.rect32_list[i]);
+  }
 }
 
 TEST_CASE("testing person") {
@@ -126,13 +118,9 @@ TEST_CASE("testing person") {
   for (int i = 0; i < OBJECT_COUNT; ++i) {
     auto my_person = my_persons.person_list[i];
     auto pb_person = *(pb_persons.person_list().begin() + i);
-    REQUIRE(my_person.id.has_value());
     REQUIRE(my_person.id == pb_person.id());
-    REQUIRE(my_person.name.has_value());
     REQUIRE(my_person.name == pb_person.name());
-    REQUIRE(my_person.age.has_value());
     REQUIRE(my_person.age == pb_person.age());
-    REQUIRE(my_person.salary.has_value());
     REQUIRE(my_person.salary == pb_person.salary());
 
     auto pb_buf = pb_person.SerializeAsString();
@@ -142,6 +130,14 @@ TEST_CASE("testing person") {
 
     auto my_buf = serialize<std::string>(my_person);
     REQUIRE(my_buf == pb_buf);
+
+    std::size_t len = 0;
+    auto d_t_ret =
+        deserialize<struct_pb::person>(my_buf.data(), my_buf.size(), len);
+    REQUIRE(len == my_buf.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(d_t == my_person);
   }
 
   auto pb_buf2 = pb_persons.SerializeAsString();
@@ -151,6 +147,17 @@ TEST_CASE("testing person") {
   auto my_buf2 = serialize<std::string>(my_persons);
   REQUIRE(my_buf2.size() == pb_buf2.size());
   REQUIRE(my_buf2 == pb_buf2);
+
+  std::size_t len = 0;
+  auto d_t_ret =
+      deserialize<struct_pb::persons>(my_buf2.data(), my_buf2.size(), len);
+  REQUIRE(len == my_buf2.size());
+  REQUIRE(d_t_ret);
+  auto d_t = d_t_ret.value();
+  CHECK(d_t == my_persons);
+  for (int i = 0; i < d_t.person_list.size(); ++i) {
+    CHECK(d_t.person_list[i] == my_persons.person_list[i]);
+  }
 }
 
 TEST_CASE("testing monsters") {
@@ -163,15 +170,10 @@ TEST_CASE("testing monsters") {
 
     REQUIRE(my_m.pos.has_value());
     REQUIRE(my_m.pos == pb_m.pos());
-    REQUIRE(my_m.mana.has_value());
     REQUIRE(my_m.mana == pb_m.mana());
-    REQUIRE(my_m.hp.has_value());
     REQUIRE(my_m.hp == pb_m.hp());
-    REQUIRE(my_m.name.has_value());
     REQUIRE(my_m.name == pb_m.name());
-    REQUIRE(my_m.inventory.has_value());
     REQUIRE(my_m.inventory == pb_m.inventory());
-    REQUIRE(my_m.color.has_value());
     REQUIRE(my_m.color == pb_m.color());
     // REQUIRE(my_m.weapons == pb_m.weapons());
     check_repeated(my_m.weapons, pb_m.weapons());
@@ -183,6 +185,22 @@ TEST_CASE("testing monsters") {
 
     auto my_buf = serialize<std::string>(my_m);
     REQUIRE(my_buf == pb_buf);
+
+    std::size_t len = 0;
+    auto d_t_ret =
+        deserialize<struct_pb::Monster>(my_buf.data(), my_buf.size(), len);
+    REQUIRE(len == my_buf.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(d_t == my_m);
+    CHECK(d_t.pos == my_m.pos);
+    CHECK(d_t.mana == my_m.mana);
+    CHECK(d_t.hp == my_m.hp);
+    CHECK(d_t.name == my_m.name);
+    CHECK(d_t.inventory == my_m.inventory);
+    CHECK(d_t.color == my_m.color);
+    CHECK(d_t.equipped == my_m.equipped);
+    CHECK(d_t.path == my_m.path);
   }
 
   auto pb_buf2 = pb_ms.SerializeAsString();
@@ -192,6 +210,17 @@ TEST_CASE("testing monsters") {
   auto my_buf2 = serialize<std::string>(my_ms);
   REQUIRE(my_buf2.size() == pb_buf2.size());
   REQUIRE(my_buf2 == pb_buf2);
+
+  std::size_t len = 0;
+  auto d_t_ret =
+      deserialize<struct_pb::Monsters>(my_buf2.data(), my_buf2.size(), len);
+  REQUIRE(len == my_buf2.size());
+  REQUIRE(d_t_ret);
+  auto d_t = d_t_ret.value();
+  CHECK(d_t == my_ms);
+  for (int i = 0; i < d_t.monsters.size(); ++i) {
+    CHECK(d_t.monsters[i] == my_ms.monsters[i]);
+  }
 }
 TEST_CASE("testing debugging ") {
   struct_pb::Monster my_m;
