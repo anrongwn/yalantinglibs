@@ -158,12 +158,14 @@ struct tbuffer : public std::vector<char> {
 std::vector<char> buffer1;
 tbuffer buffer2;
 std::string buffer3;
+std::string buffer4;
 
-template <typename T, typename PB>
-void bench(T &t, PB &p, std::string tag) {
+template <typename T, typename PB, typename BinPB>
+void bench(T &t, PB &p, BinPB &bin, std::string tag) {
   buffer1.clear();
   buffer2.clear();
   buffer3.clear();
+  buffer4.clear();
 
   std::cout << "------- start benchmark " << tag << " -------\n";
 
@@ -172,13 +174,15 @@ void bench(T &t, PB &p, std::string tag) {
   buffer2.reserve(buffer2.size() * SAMPLES_COUNT);
   auto pb_sz = p.SerializeAsString().size();
   buffer3.reserve(pb_sz * SAMPLES_COUNT);
+  buffer4.reserve(struct_pack::pb::get_needed_size(bin));
 
-  std::array<std::array<uint64_t, 10>, 6> arr;
+  std::array<std::array<uint64_t, 10>, 8> arr;
 
   for (int i = 0; i < 10; ++i) {
     buffer1.clear();
     buffer2.clear();
     buffer3.clear();
+    buffer4.clear();
     {
       ScopedTimer timer("serialize structpack", arr[0][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
@@ -198,6 +202,13 @@ void bench(T &t, PB &p, std::string tag) {
       for (int j = 0; j < SAMPLES_COUNT; j++) {
         buffer3.resize(buffer3.size() + pb_sz);
         p.SerializeToArray(buffer3.data() + buffer3.size() - pb_sz, pb_sz);
+      }
+      no_op();
+    }
+    {
+      ScopedTimer timer("serialize struct pb", arr[6][i]);
+      for (int j = 0; j < SAMPLES_COUNT; j++) {
+        struct_pack::pb::serialize_to(buffer4, bin);
       }
       no_op();
     }
@@ -234,6 +245,19 @@ void bench(T &t, PB &p, std::string tag) {
         no_op();
       }
     }
+    {
+      ScopedTimer timer("deserialize structpack", arr[7][i]);
+      std::size_t len = 0;
+      for (size_t j = 0; j < SAMPLES_COUNT; j++) {
+        BinPB d_bin{};
+        auto ec =
+            struct_pack::pb::deserialize_to_with_offset(d_bin, buffer4, len);
+        if (ec != std::errc{}) [[unlikely]] {
+          exit(1);
+        }
+        no_op();
+      }
+    }
   }
 
   std::cout << tag << " "
@@ -249,6 +273,10 @@ void bench(T &t, PB &p, std::string tag) {
             << ", deserialize average: " << get_avg(arr[5])
             << ", buf size: " << buffer3.size() / SAMPLES_COUNT << "\n";
   std::cout << tag << " "
+            << "struct_pack pb serialize average:    " << get_avg(arr[6])
+            << ", deserialize average: " << get_avg(arr[7])
+            << ", buf size: " << buffer3.size() / SAMPLES_COUNT << "\n";
+  std::cout << tag << " "
             << "struct_pack serialize is   "
             << (double)get_avg(arr[1]) / get_avg(arr[0])
             << " times faster than msgpack\n";
@@ -257,12 +285,20 @@ void bench(T &t, PB &p, std::string tag) {
             << (double)get_avg(arr[2]) / get_avg(arr[0])
             << " times faster than protobuf\n";
   std::cout << tag << " "
+            << "struct_pack pb serialize is   "
+            << (double)get_avg(arr[6]) / get_avg(arr[0])
+            << " times faster than protobuf\n";
+  std::cout << tag << " "
             << "struct_pack deserialize is "
             << (double)get_avg(arr[4]) / get_avg(arr[3])
             << " times faster than msgpack\n";
   std::cout << tag << " "
             << "struct_pack deserialize is "
             << (double)get_avg(arr[5]) / get_avg(arr[3])
+            << " times faster than protobuf\n";
+  std::cout << tag << " "
+            << "struct_pack pb deserialize is "
+            << (double)get_avg(arr[7]) / get_avg(arr[3])
             << " times faster than protobuf\n";
   std::cout << "------- end benchmark   " << tag << " -------\n\n";
 }
@@ -322,28 +358,34 @@ std::vector<Monster> create_monsters(size_t object_count) {
 auto v = create_rects(OBJECT_COUNT);
 auto pbs = create_rects_pb(OBJECT_COUNT);
 auto pb = *(pbs.rect32_list().begin());
+auto bin_pbs = struct_pb::create_rects(OBJECT_COUNT);
+auto bin_pb = bin_pbs.rect32_list[0];
 
 auto v1 = create_persons(OBJECT_COUNT);
 auto pbs1 = create_persons_pb(OBJECT_COUNT);
 auto pb1 = *(pbs1.person_list().begin());
+auto bin_pbs1 = struct_pb::create_persons(OBJECT_COUNT);
+auto bin_pb1 = bin_pbs1.person_list[0];
 
 auto v2 = create_monsters(OBJECT_COUNT);
 auto pbs2 = create_monsters_pb(OBJECT_COUNT);
 auto pb2 = *(pbs2.monsters().begin());
+auto bin_pbs2 = struct_pb::create_monsters(OBJECT_COUNT);
+auto bin_pb2 = bin_pbs2.monsters[0];
 
 int main() {
   {
-    bench(v[0], pb, "1 rect");
-    bench(v, pbs, "20 rect");
+    bench(v[0], pb, bin_pb, "1 rect");
+    bench(v, pbs, bin_pbs, "20 rect");
   }
 
   {
-    bench(v1[0], pb1, "1 person");
-    bench(v1, pbs1, "20 person");
+    bench(v1[0], pb1, bin_pb1, "1 person");
+    bench(v1, pbs1, bin_pbs1, "20 person");
   }
 
   {
-    bench(v2[0], pb2, "1 monster");
-    bench(v2, pbs2, "20 monster");
+    bench(v2[0], pb2, bin_pb2, "1 monster");
+    bench(v2, pbs2, bin_pbs2, "20 monster");
   }
 }

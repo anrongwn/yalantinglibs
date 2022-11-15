@@ -497,7 +497,12 @@ class unpacker {
     assert(pos_ < size_);
     auto tag = data_[pos_];
     uint8_t field_number = uint8_t(data_[pos_]) >> 3;
-    assert(field_number <= MaxFieldNumber);
+    if (field_number <= MaxFieldNumber) {
+    }
+    else {
+      std::cout << field_number << std::endl;
+      assert(field_number <= MaxFieldNumber);
+    }
     auto wire_type =
         static_cast<wire_type_t>(uint8_t(data_[pos_]) & 0b0000'0111);
     pos_++;
@@ -872,6 +877,16 @@ template <detail::struct_pack_buffer Buffer = std::vector<char>,
   o.serialize(args...);
   return buffer;
 }
+template <detail::struct_pack_buffer Buffer, typename... Args>
+void STRUCT_PACK_INLINE serialize_to(Buffer& buffer, const Args&... args) {
+  static_assert(sizeof...(args) == 1);
+  auto data_offset = buffer.size();
+  auto need_size = get_needed_size(args...);
+  auto total = data_offset + need_size;
+  buffer.resize(total);
+  packer o(buffer.data() + data_offset, need_size);
+  o.serialize(args...);
+}
 template <typename T, detail::struct_pack_byte Byte>
 auto STRUCT_PACK_INLINE deserialize(const Byte* data, std::size_t size,
                                     std::size_t& consume_len) {
@@ -886,6 +901,13 @@ auto STRUCT_PACK_INLINE deserialize(const Byte* data, std::size_t size,
   }
   return ret;
 }
-
+template <typename T, detail::deserialize_view View>
+[[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_to_with_offset(
+    T& t, const View& v, size_t& offset) {
+  unpacker in(v.data() + offset, v.size() - offset);
+  auto ret = in.deserialize(t);
+  offset += in.consume_len();
+  return ret;
+}
 }  // namespace pb
 }  // namespace struct_pack
