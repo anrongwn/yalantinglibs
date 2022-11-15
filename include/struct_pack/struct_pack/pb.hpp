@@ -62,20 +62,30 @@ class varint {
  private:
   T val;
 };
+
+template <typename T>
+concept varintable =
+    requires { std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>; };
+
 using varint32_t = varint<int32_t>;
 using varuint32_t = varint<uint32_t>;
 using varint64_t = varint<int64_t>;
 using varuint64_t = varint<uint64_t>;
 
 template <typename T>
-struct field_varint;
+concept Enum = requires { std::is_enum_v<T>; };
 
-template <typename T>
+template <Enum T>
+struct field_varint {
+  using value_type = uint64_t;
+};
+
+template <varintable T>
 struct field_varint<varint<T>> {
   using value_type = T;
 };
 
-template <typename T>
+template <varintable T>
 struct field_varint<std::optional<varint<T>>> {
   using value_type = T;
 };
@@ -112,6 +122,9 @@ concept I32 = std::same_as<T, int64_t>
     || std::same_as<T, uint64_t>
     || std::same_as<T, float>
 ;
+
+constexpr static std::size_t MaxFieldNumber = 15;
+
 // clang-format on
 std::size_t STRUCT_PACK_INLINE calculate_needed_size() { return 0; }
 template <typename T, typename... Args>
@@ -260,6 +273,7 @@ class packer {
   }
   template <typename T, std::size_t FieldNumber>
   const auto& get_field(const T& t) {
+    static_assert(FieldNumber <= MaxFieldNumber);
     static_assert(!detail::optional<T>);
     constexpr auto Count = detail::member_count<T>();
     constexpr std::size_t Index = FieldNumber - first_field_number<T>;
@@ -301,6 +315,38 @@ class packer {
       const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
       return std::get<Index>(
           std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+    }
+    else if constexpr (Count == 10) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+    }
+    else if constexpr (Count == 11) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
+      return std::get<Index>(
+          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
+    }
+    else if constexpr (Count == 12) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
+                                                   a8, a9, a10, a11, a12));
+    }
+    else if constexpr (Count == 13) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
+      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
+                                                   a8, a9, a10, a11, a12, a13));
+    }
+    else if constexpr (Count == 14) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13,
+                   a14] = t;
+      return std::get<Index>(std::forward_as_tuple(
+          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14));
+    }
+    else if constexpr (Count == 15) {
+      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,
+                   a15] = t;
+      return std::get<Index>(std::forward_as_tuple(
+          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
     }
     else {
       static_assert(!sizeof(T), "wait for add hard code");
@@ -437,6 +483,7 @@ class unpacker {
     assert(pos_ < size_);
     auto tag = data_[pos_];
     uint8_t field_number = uint8_t(data_[pos_]) >> 3;
+    assert(field_number <= MaxFieldNumber);
     auto wire_type =
         static_cast<wire_type_t>(uint8_t(data_[pos_]) & 0b0000'0111);
     pos_++;
@@ -458,6 +505,46 @@ class unpacker {
     }
     else if (field_number == 5) {
       const auto FieldNumber = 5;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 6) {
+      const auto FieldNumber = 6;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 7) {
+      const auto FieldNumber = 7;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 8) {
+      const auto FieldNumber = 8;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 9) {
+      const auto FieldNumber = 9;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 10) {
+      const auto FieldNumber = 10;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 11) {
+      const auto FieldNumber = 11;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 12) {
+      const auto FieldNumber = 12;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 13) {
+      const auto FieldNumber = 13;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 14) {
+      const auto FieldNumber = 14;
+      return deserialize_one<T, FieldNumber>(t, wire_type);
+    }
+    else if (field_number == 15) {
+      const auto FieldNumber = 15;
       return deserialize_one<T, FieldNumber>(t, wire_type);
     }
     else {
@@ -513,7 +600,21 @@ class unpacker {
       value_type v = 0;
       auto ec = deserialize_varint(t, v);
       if (ec == std::errc{}) {
-        f = v;
+        if constexpr (detail::optional<field_type>) {
+          using optional_value_type = typename field_type::value_type;
+          if constexpr (std::is_enum_v<optional_value_type>) {
+            f = static_cast<optional_value_type>(v);
+          }
+          else {
+            f = v;
+          }
+        }
+        else if constexpr (std::is_enum_v<field_type>) {
+          f = static_cast<field_type>(v);
+        }
+        else {
+          f = v;
+        }
       }
       return ec;
     }
