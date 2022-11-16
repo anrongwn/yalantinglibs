@@ -24,9 +24,8 @@ namespace struct_pack {
 namespace pb {
 template <typename T>
 class varint {
-  using value_type = T;
-
  public:
+  using value_type = T;
   varint() = default;
   varint(T t) : val(t) {}
   operator T() const { return val; }
@@ -66,7 +65,43 @@ class varint {
 };
 
 template <typename T>
+class sint {
+ public:
+  using value_type = T;
+  sint() = default;
+  sint(T t) : val(t) {}
+  operator T() const { return val; }
+  auto& operator=(T t) {
+    val = t;
+    return *this;
+  }
+  auto operator<=>(const sint<T>&) const = default;
+  bool operator==(T t) const { return val == t; }
+  bool operator==(const sint& t) const { return val == t.val; }
+  auto operator&(uint8_t mask) const {
+    T new_val = val & mask;
+    return sint(new_val);
+  }
+  template <std::unsigned_integral U>
+  auto operator<<(U shift) const {
+    T new_val = val << shift;
+    return sint(new_val);
+  }
+  friend std::ostream& operator<<(std::ostream& os, const sint& t) {
+    os << t.val;
+    return os;
+  }
+
+ private:
+  T val;
+};
+
+template <typename T>
 concept varintable =
+    requires { std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>; };
+
+template <typename T>
+concept sintable =
     requires { std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>; };
 
 using varint32_t = varint<int32_t>;
@@ -74,26 +109,63 @@ using varuint32_t = varint<uint32_t>;
 using varint64_t = varint<int64_t>;
 using varuint64_t = varint<uint64_t>;
 
-template <typename T>
-concept Enum = requires { std::is_enum_v<T>; };
-
-template <Enum T>
-struct field_varint {
-  using value_type = uint64_t;
-};
-
-template <varintable T>
-struct field_varint<varint<T>> {
-  using value_type = T;
-};
-
-template <varintable T>
-struct field_varint<std::optional<varint<T>>> {
-  using value_type = T;
-};
+using sint32_t = sint<int32_t>;
+using sint64_t = sint<int64_t>;
 
 template <typename T>
-using field_varint_t = typename field_varint<T>::value_type;
+concept varintable_t =
+    std::is_same_v<T, varint32_t> || std::is_same_v<T, varint64_t> ||
+    std::is_same_v<T, varuint32_t> || std::is_same_v<T, varuint64_t>;
+template <typename T>
+concept sintable_t = std::is_same_v<T, sint32_t> || std::is_same_v<T, sint64_t>;
+
+template <typename T>
+concept Enum = std::is_enum_v<T>;
+
+template <typename T>
+constexpr auto get_field_varint_type(const T& t) {
+  if constexpr (detail::optional<T>) {
+    return get_field_varint_type(std::declval<typename T::value_type>());
+  }
+  else if constexpr (std::is_enum_v<T>) {
+    return uint64_t{};
+  }
+  else if constexpr (varintable_t<T>) {
+    return typename T::value_type{};
+  }
+  else if constexpr (sintable_t<T>) {
+    return typename T::value_type{};
+  }
+  else {
+    static_assert(!sizeof(T), "error field");
+  }
+}
+//
+// template <typename T>
+// struct field_varint;
+//
+// template <typename U>
+// struct field_varint<Enum<U>> {
+//  using value_type = uint64_t;
+//};
+//
+// template <varintable T>
+// struct field_varint<varint<T>> {
+//  using value_type = T;
+//};
+//
+// template <sintable T>
+// struct field_varint<sint<T>> {
+//  using value_type = T;
+//};
+//
+// template <varintable_t T>
+// struct field_varint<std::optional<T>> {
+//  using value_type = typename T::value_type;
+//};
+
+template <typename T>
+using field_varint_t = decltype(get_field_varint_type(std::declval<T>()));
 
 // clang-format off
 template <typename T>
@@ -106,6 +178,8 @@ concept VARINT =
     || std::same_as<T, varuint32_t>
     || std::same_as<T, varint64_t>
     || std::same_as<T, varuint64_t>
+    || std::same_as<T, sint32_t>
+    || std::same_as<T, sint64_t>
     || std::same_as<T, bool>
     || std::is_enum_v<T>
 ;
@@ -151,6 +225,34 @@ std::size_t STRUCT_PACK_INLINE calculate_varint_size(uint64_t t) {
   } while (t != 0);
   return ret;
 }
+template <varintable T>
+std::size_t STRUCT_PACK_INLINE calculate_varint_size(const varint<T>& v) {
+  uint64_t t = v;
+  return calculate_varint_size(t);
+}
+template <typename U, typename T, unsigned Shift>
+U encode_zigzag(T t) {
+  return (static_cast<U>(t) << 1U) ^
+         static_cast<U>(-static_cast<T>(static_cast<U>(t) >> Shift));
+}
+template <typename T>
+auto encode_zigzag(T t) {
+  if constexpr (std::is_same_v<T, int32_t>) {
+    return encode_zigzag<uint32_t, int32_t, 31U>(t);
+  }
+  else if constexpr (std::is_same_v<T, int64_t>) {
+    return encode_zigzag<uint64_t, int64_t, 63U>(t);
+  }
+  else {
+    static_assert(!sizeof(T), "error zigzag type");
+  }
+}
+
+template <sintable T>
+std::size_t STRUCT_PACK_INLINE calculate_varint_size(const sint<T>& t) {
+  auto v = encode_zigzag(T(t));
+  return calculate_varint_size(v);
+}
 template <typename T>
 std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
   if constexpr (detail::optional<T>) {
@@ -170,7 +272,7 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       return 1 + calculate_varint_size(v);
     }
     else {
-      if (t == 0) {
+      if (t == T{}) {
         return 0;
       }
       return 1 + calculate_varint_size(t);
@@ -382,7 +484,7 @@ class packer {
           serialize_varint(v);
         }
         else {
-          if (t == 0) {
+          if (t == T{}) {
             return;
           }
           write_tag(field_number, wire_type);
@@ -458,6 +560,12 @@ class packer {
     } while (t != 0);
     assert(pos_ > 0);
     data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
+  }
+  template <sintable_t T>
+  void serialize_varint(T t) {
+    using value_type = typename T::value_type;
+    auto v = encode_zigzag(value_type(t));
+    serialize_varint(v);
   }
   void write_tag(std::size_t field_number, wire_type_t wire_type) {
     auto tag = (field_number << 3) | uint8_t(wire_type);
@@ -608,6 +716,23 @@ class unpacker {
       }
     }
   }
+  template <typename T, typename U>
+  T decode_zigzag(U u) {
+    return static_cast<T>((u >> 1U)) ^ static_cast<U>(-static_cast<T>(u & 1U));
+  }
+  template <typename T>
+  T decode_zigzag(T t) {
+    if constexpr (std::is_same_v<T, int32_t>) {
+      return decode_zigzag<int32_t, uint32_t>(t);
+    }
+    else if constexpr (std::is_same_v<T, int64_t>) {
+      return decode_zigzag<int64_t, uint64_t>(t);
+    }
+    else {
+      static_assert(!sizeof(T), "error type of zigzag");
+    }
+  }
+
   template <typename T, std::size_t FieldNumber, wire_type_t WireType>
   std::errc deserialize_one(T& t) {
     static_assert(!std::is_const_v<T>);
@@ -618,6 +743,9 @@ class unpacker {
       using value_type = field_varint_t<field_type>;
       value_type v = 0;
       auto ec = deserialize_varint(t, v);
+      if constexpr (sintable_t<field_type>) {
+        v = decode_zigzag(v);
+      }
       if (ec == std::errc{}) {
         if constexpr (detail::optional<field_type>) {
           using optional_value_type = typename field_type::value_type;

@@ -42,3 +42,10 @@ message MyTestEnum {
 message MyTestRepeatedMessage {
   repeated MyTestFloat fs = 1;
 }
+
+message MyTestSint32 {
+  sint32 a = 1;
+}
+message MyTestSint64 {
+  sint64 b = 2;
+}

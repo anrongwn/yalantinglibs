@@ -490,5 +490,158 @@ TEST_CASE("testing nested repeated message") {
     CHECK(t.fs == d_t.fs);
   }
 }
+struct my_test_sint32 {
+  sint32_t a;
+  auto operator<=>(const my_test_sint32 &) const = default;
+};
+TEST_CASE("testing sint32") {
+  SUBCASE("-1") {
+    std::string buf{0x08, 0x01};
+    MyTestSint32 pb_t;
+    pb_t.set_a(-1);
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    REQUIRE(pb_buf == buf);
 
+    my_test_sint32 t{};
+    t.a = -1;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_sint32>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.a == t.a);
+  }
+  SUBCASE("128") {
+    std::string buf{0x08, (char)0x80, 0x02};
+    MyTestSint32 pb_t;
+    pb_t.set_a(128);
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    REQUIRE(pb_buf == buf);
+
+    my_test_sint32 t{};
+    t.a = 128;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_sint32>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.a == t.a);
+  }
+  SUBCASE("range") {
+    for (int32_t i = INT16_MAX; i > INT16_MIN + 1; --i) {
+      MyTestSint32 pb_t;
+      pb_t.set_a(i);
+      auto pb_buf = pb_t.SerializeAsString();
+
+      my_test_sint32 t{.a = i};
+      auto buf = serialize<std::string>(t);
+
+      REQUIRE(buf == pb_buf);
+
+      std::size_t len = 0;
+      auto d_t_ret = deserialize<my_test_sint32>(buf.data(), buf.size(), len);
+      CHECK(len == buf.size());
+      REQUIRE(d_t_ret);
+      auto d_t = d_t_ret.value();
+      CHECK(d_t == t);
+      CHECK(d_t.a == i);
+
+      REQUIRE(d_t.a == pb_t.a());
+    }
+  }
+}
+struct my_test_sint64 {
+  sint64_t b;
+  auto operator<=>(const my_test_sint64 &) const = default;
+};
+template <>
+constexpr std::size_t first_field_number<my_test_sint64> = 2;
+TEST_CASE("testing sint64") {
+  SUBCASE("-1") {
+    std::string buf{0x10, 0x01};
+    MyTestSint64 pb_t;
+    pb_t.set_b(-1);
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    REQUIRE(pb_buf == buf);
+
+    my_test_sint64 t{};
+    t.b = -1;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_sint64>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.b == t.b);
+  }
+  SUBCASE("128") {
+    std::string buf{0x10, (char)0x80, 0x02};
+    MyTestSint64 pb_t;
+    pb_t.set_b(128);
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    REQUIRE(pb_buf == buf);
+
+    my_test_sint64 t{};
+    t.b = 128;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_sint64>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.b == t.b);
+  }
+  SUBCASE("range") {
+    for (int64_t i = -1; i > INT32_MIN + 1; i *= -2) {
+      MyTestSint64 pb_t;
+      pb_t.set_b(i);
+      auto pb_buf = pb_t.SerializeAsString();
+
+      my_test_sint64 t{.b = i};
+      auto buf = serialize<std::string>(t);
+
+      REQUIRE(buf == pb_buf);
+
+      std::size_t len = 0;
+      auto d_t_ret = deserialize<my_test_sint64>(buf.data(), buf.size(), len);
+      CHECK(len == buf.size());
+      REQUIRE(d_t_ret);
+      auto d_t = d_t_ret.value();
+      CHECK(d_t == t);
+      CHECK(d_t.b == i);
+
+      REQUIRE(d_t.b == pb_t.b());
+    }
+  }
+}
 TEST_SUITE_END;
