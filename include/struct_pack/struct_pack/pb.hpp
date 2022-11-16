@@ -231,12 +231,12 @@ std::size_t STRUCT_PACK_INLINE calculate_varint_size(const varint<T>& v) {
   return calculate_varint_size(t);
 }
 template <typename U, typename T, unsigned Shift>
-U encode_zigzag(T t) {
+U STRUCT_PACK_INLINE encode_zigzag(T t) {
   return (static_cast<U>(t) << 1U) ^
          static_cast<U>(-static_cast<T>(static_cast<U>(t) >> Shift));
 }
 template <typename T>
-auto encode_zigzag(T t) {
+auto STRUCT_PACK_INLINE encode_zigzag(T t) {
   if constexpr (std::is_same_v<T, int32_t>) {
     return encode_zigzag<uint32_t, int32_t, 31U>(t);
   }
@@ -245,6 +245,22 @@ auto encode_zigzag(T t) {
   }
   else {
     static_assert(!sizeof(T), "error zigzag type");
+  }
+}
+template <typename T, typename U>
+T STRUCT_PACK_INLINE decode_zigzag(U u) {
+  return static_cast<T>((u >> 1U)) ^ static_cast<U>(-static_cast<T>(u & 1U));
+}
+template <typename T>
+T STRUCT_PACK_INLINE decode_zigzag(T t) {
+  if constexpr (std::is_same_v<T, int32_t>) {
+    return decode_zigzag<int32_t, uint32_t>(t);
+  }
+  else if constexpr (std::is_same_v<T, int64_t>) {
+    return decode_zigzag<int64_t, uint64_t>(t);
+  }
+  else {
+    static_assert(!sizeof(T), "error type of zigzag");
   }
 }
 
@@ -714,22 +730,6 @@ class unpacker {
         assert(false && "not support now");
         return std::errc::invalid_argument;
       }
-    }
-  }
-  template <typename T, typename U>
-  T decode_zigzag(U u) {
-    return static_cast<T>((u >> 1U)) ^ static_cast<U>(-static_cast<T>(u & 1U));
-  }
-  template <typename T>
-  T decode_zigzag(T t) {
-    if constexpr (std::is_same_v<T, int32_t>) {
-      return decode_zigzag<int32_t, uint32_t>(t);
-    }
-    else if constexpr (std::is_same_v<T, int64_t>) {
-      return decode_zigzag<int64_t, uint64_t>(t);
-    }
-    else {
-      static_assert(!sizeof(T), "error type of zigzag");
     }
   }
 
