@@ -191,30 +191,6 @@ std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
   });
   return ret;
 }
-template <typename T>
-std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
-  if constexpr (std::unsigned_integral<T>) {
-    std::size_t ret = 0;
-    do {
-      ret++;
-      t >>= 7;
-    } while (t != 0);
-    return ret;
-  }
-  else if constexpr (varintable_t<T>) {
-    using value_type = typename T::value_type;
-    uint64_t v = value_type(t);
-    return calculate_varint_size(v);
-  }
-  else if constexpr (sintable_t<T>) {
-    using value_type = typename T::value_type;
-    auto v = encode_zigzag(value_type(t));
-    return calculate_varint_size(v);
-  }
-  else {
-    static_assert(!sizeof(T), "error type");
-  }
-}
 template <typename U, typename T, unsigned Shift>
 U STRUCT_PACK_INLINE encode_zigzag(T t) {
   return (static_cast<U>(t) << 1U) ^
@@ -246,6 +222,30 @@ T STRUCT_PACK_INLINE decode_zigzag(T t) {
   }
   else {
     static_assert(!sizeof(T), "error type of zigzag");
+  }
+}
+template <typename T>
+std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
+  if constexpr (std::unsigned_integral<T>) {
+    std::size_t ret = 0;
+    do {
+      ret++;
+      t >>= 7;
+    } while (t != 0);
+    return ret;
+  }
+  else if constexpr (varintable_t<T>) {
+    using value_type = typename T::value_type;
+    uint64_t v = value_type(t);
+    return calculate_varint_size(v);
+  }
+  else if constexpr (sintable_t<T>) {
+    using value_type = typename T::value_type;
+    auto v = encode_zigzag(value_type(t));
+    return calculate_varint_size(v);
+  }
+  else {
+    static_assert(!sizeof(T), "error type");
   }
 }
 
