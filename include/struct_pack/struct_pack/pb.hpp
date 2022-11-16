@@ -168,8 +168,8 @@ concept LEN = std::same_as<T, std::string>
     || std::is_class_v<T>
     || detail::container<T>;
 template <typename T>
-concept I32 = std::same_as<T, int64_t>
-    || std::same_as<T, uint64_t>
+concept I32 = std::same_as<T, int32_t>
+    || std::same_as<T, uint32_t>
     || std::same_as<T, float>
 ;
 
@@ -204,6 +204,11 @@ std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
   else if constexpr (varintable_t<T>) {
     using value_type = typename T::value_type;
     uint64_t v = value_type(t);
+    return calculate_varint_size(v);
+  }
+  else if constexpr (sintable_t<T>) {
+    using value_type = typename T::value_type;
+    auto v = encode_zigzag(value_type(t));
     return calculate_varint_size(v);
   }
   else {
@@ -244,11 +249,6 @@ T STRUCT_PACK_INLINE decode_zigzag(T t) {
   }
 }
 
-template <sintable T>
-std::size_t STRUCT_PACK_INLINE calculate_varint_size(const sint<T>& t) {
-  auto v = encode_zigzag(T(t));
-  return calculate_varint_size(v);
-}
 template <typename T>
 std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
   if constexpr (detail::optional<T>) {
@@ -281,7 +281,7 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       }
       return 1 + calculate_varint_size(t.size()) + t.size();
     }
-    else if constexpr (detail::map_container<T> || detail::container<T>) {
+    else if constexpr (detail::container<T>) {
       if (t.empty()) {
         return 0;
       }
@@ -294,6 +294,12 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
         return 1 + calculate_varint_size(t.size()) + sz;
       }
       else {
+        if constexpr (detail::map_container<T>) {
+          using key_type = typename T::key_type;
+          static_assert(
+              std::same_as<key_type, std::string> || std::integral<key_type>,
+              "the key_type must be integral or string type");
+        }
         std::size_t sz = 0;
         for (auto&& i : t) {
           sz += calculate_one_size(i);
