@@ -120,9 +120,6 @@ template <typename T>
 concept sintable_t = std::is_same_v<T, sint32_t> || std::is_same_v<T, sint64_t>;
 
 template <typename T>
-concept Enum = std::is_enum_v<T>;
-
-template <typename T>
 constexpr auto get_field_varint_type(const T& t) {
   if constexpr (detail::optional<T>) {
     return get_field_varint_type(std::declval<typename T::value_type>());
@@ -140,29 +137,6 @@ constexpr auto get_field_varint_type(const T& t) {
     static_assert(!sizeof(T), "error field");
   }
 }
-//
-// template <typename T>
-// struct field_varint;
-//
-// template <typename U>
-// struct field_varint<Enum<U>> {
-//  using value_type = uint64_t;
-//};
-//
-// template <varintable T>
-// struct field_varint<varint<T>> {
-//  using value_type = T;
-//};
-//
-// template <sintable T>
-// struct field_varint<sint<T>> {
-//  using value_type = T;
-//};
-//
-// template <varintable_t T>
-// struct field_varint<std::optional<T>> {
-//  using value_type = typename T::value_type;
-//};
 
 template <typename T>
 using field_varint_t = decltype(get_field_varint_type(std::declval<T>()));
@@ -217,18 +191,24 @@ std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
   });
   return ret;
 }
-std::size_t STRUCT_PACK_INLINE calculate_varint_size(uint64_t t) {
-  std::size_t ret = 0;
-  do {
-    ret++;
-    t >>= 7;
-  } while (t != 0);
-  return ret;
-}
-template <varintable T>
-std::size_t STRUCT_PACK_INLINE calculate_varint_size(const varint<T>& v) {
-  uint64_t t = v;
-  return calculate_varint_size(t);
+template <typename T>
+std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
+  if constexpr (std::unsigned_integral<T>) {
+    std::size_t ret = 0;
+    do {
+      ret++;
+      t >>= 7;
+    } while (t != 0);
+    return ret;
+  }
+  else if constexpr (varintable_t<T>) {
+    using value_type = typename T::value_type;
+    uint64_t v = value_type(t);
+    return calculate_varint_size(v);
+  }
+  else {
+    static_assert(!sizeof(T), "error type");
+  }
 }
 template <typename U, typename T, unsigned Shift>
 U STRUCT_PACK_INLINE encode_zigzag(T t) {
