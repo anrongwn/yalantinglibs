@@ -550,16 +550,7 @@ class packer {
   }
   template <typename T>
   void serialize_varint(T t) {
-    if constexpr (std::unsigned_integral<T>) {
-      do {
-        assert(pos_ < max_);
-        data_[pos_++] = 0b1000'0000 | uint8_t(t);
-        t >>= 7;
-      } while (t != 0);
-      assert(pos_ > 0);
-      data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
-    }
-    else if constexpr (varintable_t<T>) {
+    if constexpr (varintable_t<T>) {
       using value_type = std::make_unsigned_t<typename T::value_type>;
       serialize_varint(uint64_t(t));
     }
@@ -569,7 +560,14 @@ class packer {
       serialize_varint(v);
     }
     else {
-      static_assert(!sizeof(T), "error type");
+      uint64_t v = t;
+      do {
+        assert(pos_ < max_);
+        data_[pos_++] = 0b1000'0000 | uint8_t(v);
+        v >>= 7;
+      } while (v != 0);
+      assert(pos_ > 0);
+      data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
     }
   }
   void write_tag(std::size_t field_number, wire_type_t wire_type) {
@@ -771,6 +769,10 @@ class unpacker {
       return deserialize_varint(t, f.value());
     }
     else {
+      // Variable-width integers, or varints,
+      // are at the core of the wire format.
+      // They allow encoding unsigned 64-bit integers using anywhere
+      // between one and ten bytes, with small values using fewer bytes.
       uint64_t n = 0;
       std::size_t i = 0;
       bool finished = false;
