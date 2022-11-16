@@ -49,3 +49,6 @@ message MyTestSint32 {
 message MyTestSint64 {
   sint64 b = 2;
 }
+message MyTestMap {
+  map<string, int32> e = 3;
+}

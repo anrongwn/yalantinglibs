@@ -872,13 +872,27 @@ class unpacker {
         return ec;
       }
       else {
-        value_type val{};
-        unpacker o(data_ + pos_, sz);
-        ec = o.template deserialize(val);
-        if (ec != std::errc{}) {
-          return ec;
+        if constexpr (detail::map_container<Field>) {
+          using key_type = typename Field::key_type;
+          using mapped_type = typename Field::mapped_type;
+          // TODO: inplace?
+          std::pair<key_type, mapped_type> entry{};
+          unpacker o(data_ + pos_, sz);
+          ec = o.template deserialize(entry);
+          if (ec != std::errc{}) {
+            return ec;
+          }
+          f[entry.first] = entry.second;
         }
-        f.push_back(val);
+        else {
+          value_type val{};
+          unpacker o(data_ + pos_, sz);
+          ec = o.template deserialize(val);
+          if (ec != std::errc{}) {
+            return ec;
+          }
+          f.push_back(val);
+        }
         pos_ += sz;
         return ec;
       }

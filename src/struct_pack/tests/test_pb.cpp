@@ -644,4 +644,73 @@ TEST_CASE("testing sint64") {
     }
   }
 }
+struct my_test_map {
+  std::unordered_map<std::string, varint32_t> e;
+};
+template <>
+constexpr std::size_t first_field_number<my_test_map> = 3;
+TEST_CASE("testing map") {
+  SUBCASE("one entry") {
+    std::string buf{0x1a, 0x05, 0x0a, 0x01, 0x61, 0x10, 0x01};
+
+    MyTestMap pb_t;
+    auto &pb_m = *pb_t.mutable_e();
+    pb_m["a"] = 1;
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    REQUIRE(buf == pb_buf);
+
+    my_test_map t;
+    t.e["a"] = 1;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_map>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.e == t.e);
+  }
+  SUBCASE("two entry") {
+    std::string buf{
+        0x1a,       0x0a, 0x0a, 0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x10,
+        (char)0x9a, 0x05, 0x1a, 0x05, 0x0a, 0x01, 0x61, 0x10, 0x01,
+    };
+    std::string buf2{
+        0x1a, 0x05, 0x0a, 0x01, 0x61, 0x10, 0x01, 0x1a,       0x0a, 0x0a,
+        0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f, 0x10, (char)0x9a, 0x05,
+    };
+
+    MyTestMap pb_t;
+    auto &pb_m = *pb_t.mutable_e();
+    pb_m["a"] = 1;
+    pb_m["hello"] = 666;
+    auto pb_buf = pb_t.SerializeAsString();
+    // print_hex(pb_buf);
+    CHECK(buf.size() == pb_buf.size());
+    REQUIRE((buf == pb_buf || buf2 == pb_buf));
+
+    my_test_map t;
+    t.e["a"] = 1;
+    t.e["hello"] = 666;
+
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+
+    auto b = serialize<std::string>(t);
+    CHECK(b == buf);
+
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_map>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
+    auto d_t = d_t_ret.value();
+    CHECK(d_t.e == t.e);
+  }
+}
 TEST_SUITE_END;
