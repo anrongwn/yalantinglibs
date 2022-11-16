@@ -561,7 +561,7 @@ class packer {
     }
     else if constexpr (varintable_t<T>) {
       using value_type = std::make_unsigned_t<typename T::value_type>;
-      serialize_varint(value_type(t));
+      serialize_varint(uint64_t(t));
     }
     else if constexpr (sintable_t<T>) {
       using value_type = typename T::value_type;
@@ -771,12 +771,12 @@ class unpacker {
       return deserialize_varint(t, f.value());
     }
     else {
-      Field n = 0;
+      uint64_t n = 0;
       std::size_t i = 0;
       bool finished = false;
       while (pos_ < size_) {
         if ((uint8_t(data_[pos_]) >> 7) == 1) {
-          n |= static_cast<Field>(data_[pos_] & 0b0111'1111) << 7 * i;
+          n |= static_cast<uint64_t>(data_[pos_] & 0b0111'1111) << 7 * i;
           pos_++;
           i++;
         }

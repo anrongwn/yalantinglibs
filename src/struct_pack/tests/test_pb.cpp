@@ -23,6 +23,7 @@ using namespace doctest;
 using namespace struct_pack::pb;
 struct test1 {
   varint32_t a;
+  auto operator<=>(const test1 &) const = default;
 };
 struct test2 {
   std::string b;
@@ -73,6 +74,28 @@ TEST_CASE("testing test1") {
     REQUIRE_MESSAGE(d_t_ret, struct_pack::error_message(d_t_ret.error()));
     auto d_t = d_t_ret.value();
     CHECK(t.a == d_t.a);
+  }
+  SUBCASE("negative") {
+    for (int32_t i = -1; i > INT16_MIN + 1; i *= 2) {
+      Test1 pb_t;
+      pb_t.set_a(i);
+      auto pb_buf = pb_t.SerializeAsString();
+
+      test1 tt{.a = i};
+      auto buf = serialize<std::string>(tt);
+
+      REQUIRE(buf == pb_buf);
+
+      std::size_t len = 0;
+      auto d_t_ret = deserialize<test1>(buf.data(), buf.size(), len);
+      CHECK(len == buf.size());
+      REQUIRE(d_t_ret);
+      auto d_t = d_t_ret.value();
+      CHECK(d_t == tt);
+      CHECK(d_t.a == i);
+
+      REQUIRE(d_t.a == pb_t.a());
+    }
   }
 }
 TEST_CASE("testing test2") {
