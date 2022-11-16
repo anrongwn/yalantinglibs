@@ -1032,13 +1032,5 @@ auto STRUCT_PACK_INLINE deserialize(const Byte* data, std::size_t size,
   }
   return ret;
 }
-template <typename T, detail::deserialize_view View>
-[[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_to_with_offset(
-    T& t, const View& v, size_t& offset) {
-  unpacker in(v.data() + offset, v.size() - offset);
-  auto ret = in.deserialize(t);
-  offset += in.consume_len();
-  return ret;
-}
 }  // namespace pb
 }  // namespace struct_pack
