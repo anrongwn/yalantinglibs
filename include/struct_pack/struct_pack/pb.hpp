@@ -548,20 +548,29 @@ class packer {
       }
     }
   }
-  void serialize_varint(uint64_t t) {
-    do {
-      assert(pos_ < max_);
-      data_[pos_++] = 0b1000'0000 | uint8_t(t);
-      t >>= 7;
-    } while (t != 0);
-    assert(pos_ > 0);
-    data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
-  }
-  template <sintable_t T>
+  template <typename T>
   void serialize_varint(T t) {
-    using value_type = typename T::value_type;
-    auto v = encode_zigzag(value_type(t));
-    serialize_varint(v);
+    if constexpr (std::unsigned_integral<T>) {
+      do {
+        assert(pos_ < max_);
+        data_[pos_++] = 0b1000'0000 | uint8_t(t);
+        t >>= 7;
+      } while (t != 0);
+      assert(pos_ > 0);
+      data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
+    }
+    else if constexpr (varintable_t<T>) {
+      using value_type = std::make_unsigned_t<typename T::value_type>;
+      serialize_varint(value_type(t));
+    }
+    else if constexpr (sintable_t<T>) {
+      using value_type = typename T::value_type;
+      auto v = encode_zigzag(value_type(t));
+      serialize_varint(v);
+    }
+    else {
+      static_assert(!sizeof(T), "error type");
+    }
   }
   void write_tag(std::size_t field_number, wire_type_t wire_type) {
     auto tag = (field_number << 3) | uint8_t(wire_type);
