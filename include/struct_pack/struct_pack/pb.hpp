@@ -296,9 +296,12 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       else {
         if constexpr (detail::map_container<T>) {
           using key_type = typename T::key_type;
+          using mapped_type = typename T::mapped_type;
           static_assert(
               std::same_as<key_type, std::string> || std::integral<key_type>,
               "the key_type must be integral or string type");
+          static_assert(!detail::map_container<mapped_type>,
+                        "the mapped_type can be any type except another map.");
         }
         std::size_t sz = 0;
         for (auto&& i : t) {
