@@ -34,25 +34,27 @@ class varint {
   using value_type = T;
   varint() = default;
   varint(T t) : val(t) {}
-  operator T() const { return val; }
+  [[nodiscard]] operator T() const { return val; }
   auto& operator=(T t) {
     val = t;
     return *this;
   }
-  auto operator<=>(const varint&) const = default;
-  bool operator==(const varint<T>& t) const { return val == t.val; }
-  bool operator==(T t) const { return val == t; }
-  auto operator&(uint8_t mask) const {
+  [[nodiscard]] auto operator<=>(const varint&) const = default;
+  [[nodiscard]] bool operator==(const varint<T>& t) const {
+    return val == t.val;
+  }
+  [[nodiscard]] bool operator==(T t) const { return val == t; }
+  [[nodiscard]] auto operator&(uint8_t mask) const {
     T new_val = val & mask;
     return varint(new_val);
   }
   template <std::unsigned_integral U>
-  auto operator<<(U shift) const {
+  [[nodiscard]] auto operator<<(U shift) const {
     T new_val = val << shift;
     return varint(new_val);
   }
   template <typename U>
-  auto operator|=(U shift) {
+  [[nodiscard]] auto operator|=(U shift) {
     if constexpr (std::same_as<U, varint<T>>) {
       val |= shift.val;
     }
@@ -76,15 +78,15 @@ class sint {
   using value_type = T;
   sint() = default;
   sint(T t) : val(t) {}
-  operator T() const { return val; }
+  [[nodiscard]] operator T() const { return val; }
   auto& operator=(T t) {
     val = t;
     return *this;
   }
-  auto operator<=>(const sint<T>&) const = default;
-  bool operator==(T t) const { return val == t; }
-  bool operator==(const sint& t) const { return val == t.val; }
-  auto operator&(uint8_t mask) const {
+  [[nodiscard]] auto operator<=>(const sint<T>&) const = default;
+  [[nodiscard]] bool operator==(T t) const { return val == t; }
+  [[nodiscard]] bool operator==(const sint& t) const { return val == t.val; }
+  [[nodiscard]] auto operator&(uint8_t mask) const {
     T new_val = val & mask;
     return sint(new_val);
   }
@@ -110,28 +112,35 @@ using varuint64_t = varint<uint64_t>;
 using sint32_t = sint<int32_t>;
 using sint64_t = sint<int64_t>;
 
+using fixed32_t = uint32_t;
+using fixed64_t = uint64_t;
+using sfixed32_t = int32_t;
+using sfixed64_t = int64_t;
+
+// clang-format off
 template <typename T>
 concept varintable_t =
-    std::is_same_v<T, varint32_t> || std::is_same_v<T, varint64_t> ||
-    std::is_same_v<T, varuint32_t> || std::is_same_v<T, varuint64_t>;
+    std::is_same_v<T, varint32_t>
+    || std::is_same_v<T, varint64_t>
+    || std::is_same_v<T, varuint32_t>
+    || std::is_same_v<T, varuint64_t>
+;
 template <typename T>
-concept sintable_t = std::is_same_v<T, sint32_t> || std::is_same_v<T, sint64_t>;
+concept sintable_t =
+    std::is_same_v<T, sint32_t>
+    || std::is_same_v<T, sint64_t>
+;
+// clang-format on
 
 template <typename T>
 consteval auto get_field_varint_type() {
   if constexpr (detail::optional<T>) {
     return get_field_varint_type<typename T::value_type>();
   }
-  else if constexpr (std::same_as<T, bool>) {
+  else if constexpr (std::same_as<T, bool> || std::is_enum_v<T>) {
     return uint64_t{};
   }
-  else if constexpr (std::is_enum_v<T>) {
-    return uint64_t{};
-  }
-  else if constexpr (varintable_t<T>) {
-    return typename T::value_type{};
-  }
-  else if constexpr (sintable_t<T>) {
+  else if constexpr (varintable_t<T> || sintable_t<T>) {
     return typename T::value_type{};
   }
   else {
@@ -174,7 +183,14 @@ concept I32 = std::same_as<T, int32_t>
     || std::same_as<T, float>
 ;
 
-enum class wire_type_t : uint8_t { varint, i64, len, sgroup, egroup, i32 };
+enum class wire_type_t : uint8_t {
+varint = 0,
+i64 = 1,
+len = 2,
+sgroup = 3,
+egroup = 4,
+i32 = 5
+};
 template <typename T>
 consteval wire_type_t get_wire_type() {
   if constexpr (detail::optional<T>) {
