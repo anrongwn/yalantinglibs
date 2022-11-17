@@ -814,78 +814,12 @@ class unpacker {
     }
     auto field_index = n2i_map.at(field_number);
     auto wire_type = static_cast<wire_type_t>(tag & 0b0000'0111);
-    if (field_index == 0) {
-      const auto FieldNumber = i2n_map.at(0);
-      return deserialize_one<T, 0>(t, wire_type);
-    }
-    else if (field_index == 1) {
-      const auto FieldNumber = i2n_map.at(1);
-      return deserialize_one<T, 1>(t, wire_type);
-    }
-    else if (field_index == 2) {
-      const auto FieldNumber = i2n_map.at(2);
-      return deserialize_one<T, 2>(t, wire_type);
-    }
-    else if (field_index == 3) {
-      const auto FieldNumber = i2n_map.at(3);
-      return deserialize_one<T, 3>(t, wire_type);
-    }
-    else if (field_index == 4) {
-      const auto FieldNumber = i2n_map.at(4);
-      return deserialize_one<T, 4>(t, wire_type);
-    }
-    else if (field_index == 5) {
-      const auto FieldNumber = i2n_map.at(5);
-      return deserialize_one<T, 5>(t, wire_type);
-    }
-    else if (field_index == 6) {
-      const auto FieldNumber = i2n_map.at(6);
-      return deserialize_one<T, 6>(t, wire_type);
-    }
-    else if (field_index == 7) {
-      const auto FieldNumber = i2n_map.at(7);
-      return deserialize_one<T, 7>(t, wire_type);
-    }
-    else if (field_index == 8) {
-      const auto FieldNumber = i2n_map.at(8);
-      return deserialize_one<T, 8>(t, wire_type);
-    }
-    else if (field_index == 9) {
-      const auto FieldNumber = i2n_map.at(9);
-      return deserialize_one<T, 9>(t, wire_type);
-    }
-    else if (field_index == 10) {
-      const auto FieldNumber = i2n_map.at(10);
-      return deserialize_one<T, 10>(t, wire_type);
-    }
-    else if (field_index == 11) {
-      const auto FieldNumber = i2n_map.at(11);
-      return deserialize_one<T, 11>(t, wire_type);
-    }
-    else if (field_index == 12) {
-      const auto FieldNumber = i2n_map.at(12);
-      return deserialize_one<T, 12>(t, wire_type);
-    }
-    else if (field_index == 13) {
-      const auto FieldNumber = i2n_map.at(13);
-      return deserialize_one<T, 13>(t, wire_type);
-    }
-    else if (field_index == 14) {
-      const auto FieldNumber = i2n_map.at(14);
-      return deserialize_one<T, 14>(t, wire_type);
-    }
-    else if (field_index == 15) {
-      const auto FieldNumber = i2n_map.at(15);
-      return deserialize_one<T, 15>(t, wire_type);
-    }
-    else {
-      diagnose<T>(field_index, field_number);
-      assert(false && "not support now");
-      return std::errc::function_not_supported;
-    }
+    assert(field_index <= detail::MaxVisitMembers);
+    return detail::template_switch<unpacker_helper>(field_index, *this, t,
+                                                    wire_type);
   }
 
-  template <typename T, std::size_t FieldIndex>
+  template <std::size_t FieldIndex, typename T>
   std::errc deserialize_one(T& t, wire_type_t wire_type) {
     constexpr auto Count = detail::member_count<T>();
     constexpr auto Map = get_field_number_to_index_map<T>();
@@ -1126,6 +1060,16 @@ class unpacker {
     }
     std::cout << "member count: " << Count << std::endl;
   }
+
+  template <std::size_t FieldIndex, typename Unpacker, typename T,
+            typename WireType>
+  struct unpacker_helper {
+    static STRUCT_PACK_INLINE std::errc run(Unpacker& o, T& t,
+                                            WireType wire_type) {
+      static_assert(std::same_as<WireType, wire_type_t>);
+      return o.template deserialize_one<FieldIndex>(t, wire_type);
+    }
+  };
 
  private:
   const Byte* data_;
