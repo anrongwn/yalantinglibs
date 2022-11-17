@@ -52,3 +52,16 @@ message MyTestSint64 {
 message MyTestMap {
   map<string, int32> e = 3;
 }
+message MyTestFixed32 {
+  fixed32 a = 1;
+  repeated fixed32 b = 2;
+}
+
+message MyTestFieldNumberRandom {
+  int32 a = 6;
+  sint64 b = 3;
+  string c = 4;
+  double d = 5;
+  float e = 1;
+  repeated fixed32 f = 128;
+}

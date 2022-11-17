@@ -736,4 +736,90 @@ TEST_CASE("testing map") {
     CHECK(d_t.e == t.e);
   }
 }
+struct my_test_fixed32 {
+  uint32_t a;
+  std::vector<uint32_t> b;
+  bool operator==(const my_test_fixed32 &) const = default;
+};
+TEST_CASE("testing fixed32") {
+  my_test_fixed32 t{};
+  //  SUBCASE("single fixed") {
+  //    t.a = 888;
+  //    MyTestFixed32 pb_t;
+  //    pb_t.set_a(888);
+  //    auto pb_buf = pb_t.SerializeAsString();
+  //    auto size = get_needed_size(t);
+  //    REQUIRE(size == pb_buf.size());
+  //    auto b = serialize<std::string>(t);
+  //    REQUIRE(hex_helper(b) == hex_helper(pb_buf));
+  //    std::size_t len = 0;
+  //    auto d_t_ret = deserialize<my_test_fixed32>(b.data(), b.size(), len);
+  //    REQUIRE(len == b.size());
+  //    REQUIRE(d_t_ret);
+  //    auto d_t = d_t_ret.value();
+  //    CHECK(d_t == t);
+  //  }
+  SUBCASE("only repeated") {
+    t.b = {5, 4, 3, 2, 1};
+    MyTestFixed32 pb_t;
+    pb_t.add_b(5);
+    pb_t.add_b(4);
+    pb_t.add_b(3);
+    pb_t.add_b(2);
+    pb_t.add_b(1);
+    auto pb_buf = pb_t.SerializeAsString();
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+    auto b = serialize<std::string>(t);
+    REQUIRE(hex_helper(b) == hex_helper(pb_buf));
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_fixed32>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(d_t == t);
+  }
+}
+struct my_test_field_number_random {
+  varint32_t a;
+  sint64_t b;
+  std::string c;
+  double d;
+  float e;
+  std::vector<uint32_t> f;
+};
+template <>
+constexpr field_number_array_t<my_test_field_number_random>
+    field_number_seq<my_test_field_number_random>{6, 3, 4, 5, 1, 128};
+TEST_CASE("testing random field number") {
+  MyTestFieldNumberRandom pb_t;
+  pb_t.set_a(666);
+  pb_t.set_b(999);
+  pb_t.set_c("random");
+  pb_t.set_d(3.14);
+  pb_t.set_e(3344.123);
+  pb_t.add_f(5);
+  pb_t.add_f(4);
+  pb_t.add_f(3);
+  pb_t.add_f(2);
+  pb_t.add_f(1);
+  auto pb_buf = pb_t.SerializeAsString();
+
+  my_test_field_number_random t{
+      .a = 666,
+      .b = 999,
+      .c = "random",
+      .d = 3.14,
+      .e = 3344.123,
+      .f = {5, 4, 3, 2, 1}
+      //      .f = {5}
+  };
+  auto size = get_needed_size(t);
+  //  REQUIRE(size == pb_buf.size());
+
+  auto b = serialize<std::string>(t);
+  CHECK(hex_helper(b) == hex_helper(pb_buf));
+  std::cout << hex_helper(b) << std::endl;
+  std::cout << hex_helper(pb_buf) << std::endl;
+}
 TEST_SUITE_END;

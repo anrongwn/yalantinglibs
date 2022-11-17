@@ -14,7 +14,13 @@
  * limitations under the License.
  */
 #pragma once
+#include <frozen/map.h>
+#include <frozen/set.h>
+
+#include <algorithm>
+#include <array>
 #include <cassert>
+#include <numeric>
 #include <ostream>
 
 #include "struct_pack/struct_pack.hpp"
@@ -174,22 +180,212 @@ concept I32 = std::same_as<T, int32_t>
 ;
 
 constexpr static std::size_t MaxFieldNumber = 15;
-
-// clang-format on
-std::size_t STRUCT_PACK_INLINE calculate_needed_size() { return 0; }
-template <typename T, typename... Args>
-std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
-                                                     const Args&... args);
+enum class wire_type_t : uint8_t { varint, i64, len, sgroup, egroup, i32 };
 template <typename T>
+consteval wire_type_t get_wire_type() {
+  if constexpr (detail::optional<T>) {
+    return get_wire_type<typename std::remove_cvref_t<T>::value_type>();
+  }
+  else if constexpr (VARINT<T>) {
+    return wire_type_t::varint;
+  }
+  else if constexpr (I64<T>) {
+    return wire_type_t::i64;
+  }
+  else if constexpr (LEN<T>) {
+    return wire_type_t::len;
+  }
+  else if constexpr (I32<T>) {
+    return wire_type_t::i32;
+  }
+  else {
+    static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
+  }
+}
+// clang-format on
+template <typename T, std::size_t FieldIndex>
+auto& get_field(T& t) {
+  static_assert(!detail::optional<T>);
+  constexpr auto Count = detail::member_count<T>();
+  constexpr auto Index = FieldIndex;
+  static_assert(Index >= 0 && Index <= Count);
+  if constexpr (Count == 1) {
+    auto& [a1] = t;
+    return std::get<Index>(std::forward_as_tuple(a1));
+  }
+  else if constexpr (Count == 2) {
+    auto& [a1, a2] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2));
+  }
+  else if constexpr (Count == 3) {
+    auto& [a1, a2, a3] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
+  }
+  else if constexpr (Count == 4) {
+    auto& [a1, a2, a3, a4] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
+  }
+  else if constexpr (Count == 5) {
+    auto& [a1, a2, a3, a4, a5] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
+  }
+  else if constexpr (Count == 6) {
+    auto& [a1, a2, a3, a4, a5, a6] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
+  }
+  else if constexpr (Count == 7) {
+    auto& [a1, a2, a3, a4, a5, a6, a7] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
+  }
+  else if constexpr (Count == 8) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
+  }
+  else if constexpr (Count == 9) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+  }
+  else if constexpr (Count == 10) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+  }
+  else if constexpr (Count == 11) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
+  }
+  else if constexpr (Count == 12) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12));
+  }
+  else if constexpr (Count == 13) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12, a13));
+  }
+  else if constexpr (Count == 14) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12, a13, a14));
+  }
+  else if constexpr (Count == 15) {
+    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15] =
+        t;
+    return std::get<Index>(std::forward_as_tuple(
+        a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
+  }
+  else {
+    static_assert(!sizeof(T), "wait for add hard code");
+  }
+}
+template <typename T, std::size_t FieldIndex>
+const auto& get_field(const T& t) {
+  static_assert(!detail::optional<T>);
+  constexpr auto Count = detail::member_count<T>();
+  constexpr auto Index = FieldIndex;
+  static_assert(Index >= 0 && Index <= Count);
+  if constexpr (Count == 1) {
+    auto&& [a1] = t;
+    return std::get<Index>(std::forward_as_tuple(a1));
+  }
+  else if constexpr (Count == 2) {
+    auto&& [a1, a2] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2));
+  }
+  else if constexpr (Count == 3) {
+    auto&& [a1, a2, a3] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
+  }
+  else if constexpr (Count == 4) {
+    auto&& [a1, a2, a3, a4] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
+  }
+  else if constexpr (Count == 5) {
+    auto&& [a1, a2, a3, a4, a5] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
+  }
+  else if constexpr (Count == 6) {
+    auto&& [a1, a2, a3, a4, a5, a6] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
+  }
+  else if constexpr (Count == 7) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
+  }
+  else if constexpr (Count == 8) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
+  }
+  else if constexpr (Count == 9) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
+  }
+  else if constexpr (Count == 10) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
+  }
+  else if constexpr (Count == 11) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
+    return std::get<Index>(
+        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
+  }
+  else if constexpr (Count == 12) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12));
+  }
+  else if constexpr (Count == 13) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12, a13));
+  }
+  else if constexpr (Count == 14) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
+    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
+                                                 a9, a10, a11, a12, a13, a14));
+  }
+  else if constexpr (Count == 15) {
+    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15] =
+        t;
+    return std::get<Index>(std::forward_as_tuple(
+        a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
+  }
+  else {
+    static_assert(!sizeof(T), "wait for add hard code");
+  }
+}
+
+std::size_t STRUCT_PACK_INLINE calculate_needed_size() { return 0; }
+// template <typename T, typename... Args>
+// std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
+//                                                      const Args&... args);
+template <std::size_t FieldNumber, typename T>
 std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t);
+
+template <typename T>
+consteval auto get_field_number_to_index_map();
+
+template <typename T, std::size_t Size, std::size_t... I>
+std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t,
+                                               std::index_sequence<I...>) {
+  constexpr auto Map = get_field_number_to_index_map<T>();
+  constexpr auto i2n_map = Map.second;
+  std::array<std::size_t, Size> size_array{
+      calculate_one_size<i2n_map.at(I)>(get_field<T, I>(t))...};
+  return std::accumulate(size_array.begin(), size_array.end(), 0);
+}
 template <typename T>
 std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
   static_assert(std::is_class_v<T>);
-  std::size_t ret = 0;
-  detail::visit_members(t, [&ret](auto&&... args) {
-    ret += calculate_needed_size(args...);
-  });
-  return ret;
+  constexpr auto Count = detail::member_count<T>();
+  return get_needed_size<T, Count>(t, std::make_index_sequence<Count>());
 }
 template <typename U, typename T, unsigned Shift>
 U STRUCT_PACK_INLINE encode_zigzag(T t) {
@@ -225,7 +421,7 @@ T STRUCT_PACK_INLINE decode_zigzag(T t) {
   }
 }
 template <typename T>
-std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
+constexpr std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
   if constexpr (std::unsigned_integral<T>) {
     std::size_t ret = 0;
     do {
@@ -248,12 +444,18 @@ std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
     static_assert(!sizeof(T), "error type");
   }
 }
-
-template <typename T>
+template <std::size_t FieldNumber, wire_type_t wire_type>
+consteval std::size_t calculate_tag_size() {
+  auto tag = (FieldNumber << 3U) | uint8_t(wire_type);
+  return calculate_varint_size(tag);
+}
+template <std::size_t FieldNumber, typename T>
 std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
+  constexpr auto wire_type = get_wire_type<T>();
+  constexpr auto tag_size = calculate_tag_size<FieldNumber, wire_type>();
   if constexpr (detail::optional<T>) {
     if (t.has_value()) {
-      return calculate_one_size(t.value());
+      return calculate_one_size<FieldNumber>(t.value());
     }
     else {
       return 0;
@@ -265,13 +467,13 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       if (v == 0) {
         return 0;
       }
-      return 1 + calculate_varint_size(v);
+      return tag_size + calculate_varint_size(v);
     }
     else {
       if (t == T{}) {
         return 0;
       }
-      return 1 + calculate_varint_size(t);
+      return tag_size + calculate_varint_size(t);
     }
   }
   else if constexpr (LEN<T>) {
@@ -279,7 +481,7 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
       if (t.empty()) {
         return 0;
       }
-      return 1 + calculate_varint_size(t.size()) + t.size();
+      return tag_size + calculate_varint_size(t.size()) + t.size();
     }
     else if constexpr (detail::container<T>) {
       if (t.empty()) {
@@ -291,7 +493,11 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
         for (auto&& i : t) {
           sz += calculate_varint_size(i);
         }
-        return 1 + calculate_varint_size(t.size()) + sz;
+        return tag_size + calculate_varint_size(t.size()) + sz;
+      }
+      else if constexpr (I32<value_type> || I64<value_type>) {
+        auto sz = t.size();
+        return tag_size + calculate_varint_size(sz) + sz * sizeof(value_type);
       }
       else {
         if constexpr (detail::map_container<T>) {
@@ -305,18 +511,19 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
         }
         std::size_t sz = 0;
         for (auto&& i : t) {
-          sz += calculate_one_size(i);
+          sz += get_needed_size(i);
         }
         return sz;
       }
     }
     else if constexpr (std::is_class_v<T>) {
-      std::size_t ret = 0;
-      detail::visit_members(t, [&ret](auto&&... args) {
-        ret += calculate_needed_size(args...);
-      });
-      // tag, len, payload
-      return 1 + 1 + ret;
+      return get_needed_size(t);
+      //      std::size_t ret = 0;
+      //      detail::visit_members(t, [&ret](auto&&... args) {
+      //        ret += calculate_needed_size(args...);
+      //      });
+      //      // tag, len, payload
+      //      return 1 + 1 + ret;
     }
     else {
       static_assert(!sizeof(T), "ERROR type");
@@ -340,36 +547,95 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
     return 0;
   }
 }
-template <typename T, typename... Args>
-std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
-                                                     const Args&... args) {
-  auto size = calculate_one_size(t);
-  return size + calculate_needed_size(args...);
-}
-enum class wire_type_t : uint8_t { varint, i64, len, sgroup, egroup, i32 };
-template <typename T>
-consteval wire_type_t get_wire_type() {
-  if constexpr (detail::optional<T>) {
-    return get_wire_type<typename std::remove_cvref_t<T>::value_type>();
-  }
-  else if constexpr (VARINT<T>) {
-    return wire_type_t::varint;
-  }
-  else if constexpr (I64<T>) {
-    return wire_type_t::i64;
-  }
-  else if constexpr (LEN<T>) {
-    return wire_type_t::len;
-  }
-  else if constexpr (I32<T>) {
-    return wire_type_t::i32;
-  }
-  else {
-    static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
-  }
-}
+// template <typename T, typename... Args>
+// std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
+//                                                      const Args&... args) {
+//   auto size = calculate_one_size(t);
+//   return size + calculate_needed_size(args...);
+// }
 template <typename T>
 constexpr std::size_t first_field_number = 1;
+
+template <typename T>
+struct field_number_array {
+  using array_type = std::array<std::size_t, detail::member_count<T>()>;
+};
+template <typename T>
+using field_number_array_t = typename field_number_array<T>::array_type;
+template <typename T>
+constexpr field_number_array_t<T> field_number_seq{};
+
+template <typename... Args>
+constexpr bool all_field_number_greater_than_zero(Args... args) {
+  return (... && args);
+}
+
+template <typename... Args>
+constexpr bool field_number_seq_not_init(Args... args) {
+  return (... && (args == 0));
+}
+
+template <typename T>
+constexpr bool has_duplicate_element() {
+  constexpr auto seq = field_number_seq<T>;
+  // TODO: a better way to check duplicate
+  for (int i = 0; i < seq.size(); ++i) {
+    for (int j = 0; j < i; ++j) {
+      if (seq[i] == seq[j]) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+template <typename T, std::size_t Size, std::size_t... I>
+constexpr auto get_field_number_to_index_map_impl(std::index_sequence<I...>) {
+  constexpr auto seq = field_number_seq<T>;
+  if constexpr (field_number_seq_not_init(std::get<I>(seq)...)) {
+    frozen::map<std::size_t, std::size_t, Size> n2i{
+        {first_field_number<T> + I, I}...};
+    frozen::map<std::size_t, std::size_t, Size> i2n{
+        {I, first_field_number<T> + I}...};
+    return std::make_pair(n2i, i2n);
+  }
+  else {
+    static_assert(all_field_number_greater_than_zero(std::get<I>(seq)...),
+                  "all field number must be specified");
+    static_assert(!has_duplicate_element<T>());
+    static_assert(first_field_number<T> == 1,
+                  "field_number_seq and first_field_number cannot be specified "
+                  "at the same time");
+    auto field_number_set = frozen::make_set(seq);
+    static_assert(field_number_set.size() == Size);
+    frozen::map<std::size_t, std::size_t, Size> n2i{{std::get<I>(seq), I}...};
+    frozen::map<std::size_t, std::size_t, Size> i2n{{I, std::get<I>(seq)}...};
+    return std::make_pair(n2i, i2n);
+  }
+}
+template <typename T>
+consteval auto get_field_number_to_index_map() {
+  constexpr auto Count = detail::member_count<T>();
+  return get_field_number_to_index_map_impl<T, Count>(
+      std::make_index_sequence<Count>());
+}
+
+template <typename T, std::size_t Size, std::size_t... I>
+consteval auto get_sorted_field_number_array_impl(std::index_sequence<I...>) {
+  constexpr auto Map = get_field_number_to_index_map<T>();
+  constexpr auto i2n_map = Map.second;
+  std::array<std::size_t, Size> array{i2n_map.at(I)...};
+  std::sort(array.begin(), array.end());
+  return array;
+}
+
+template <typename T>
+consteval auto get_sorted_field_number_array() {
+  constexpr auto Count = detail::member_count<T>();
+  return get_sorted_field_number_array_impl<T, Count>(
+      std::make_index_sequence<Count>());
+}
+
 template <detail::struct_pack_byte Byte>
 class packer {
  public:
@@ -383,89 +649,8 @@ class packer {
  private:
   template <typename T, std::size_t... I>
   void serialize(const T& t, std::index_sequence<I...>) {
-    constexpr auto Num = first_field_number<T>;
-    (serialize(get_field<T, I + Num>(t), I + Num), ...);
-  }
-  template <typename T, std::size_t FieldNumber>
-  const auto& get_field(const T& t) {
-    static_assert(FieldNumber <= MaxFieldNumber);
-    static_assert(!detail::optional<T>);
-    constexpr auto Count = detail::member_count<T>();
-    constexpr std::size_t Index = FieldNumber - first_field_number<T>;
-    static_assert(Index >= 0 && Index <= Count);
-    if constexpr (Count == 1) {
-      const auto& [a1] = t;
-      return std::get<Index>(std::forward_as_tuple(a1));
-    }
-    else if constexpr (Count == 2) {
-      const auto& [a1, a2] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2));
-    }
-    else if constexpr (Count == 3) {
-      const auto& [a1, a2, a3] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
-    }
-    else if constexpr (Count == 4) {
-      const auto& [a1, a2, a3, a4] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
-    }
-    else if constexpr (Count == 5) {
-      const auto& [a1, a2, a3, a4, a5] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
-    }
-    else if constexpr (Count == 6) {
-      const auto& [a1, a2, a3, a4, a5, a6] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
-    }
-    else if constexpr (Count == 7) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
-    }
-    else if constexpr (Count == 8) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
-    }
-    else if constexpr (Count == 9) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
-    }
-    else if constexpr (Count == 10) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
-    }
-    else if constexpr (Count == 11) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
-    }
-    else if constexpr (Count == 12) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
-                                                   a8, a9, a10, a11, a12));
-    }
-    else if constexpr (Count == 13) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
-                                                   a8, a9, a10, a11, a12, a13));
-    }
-    else if constexpr (Count == 14) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13,
-                   a14] = t;
-      return std::get<Index>(std::forward_as_tuple(
-          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14));
-    }
-    else if constexpr (Count == 15) {
-      const auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,
-                   a15] = t;
-      return std::get<Index>(std::forward_as_tuple(
-          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
-    }
-    else {
-      static_assert(!sizeof(T), "wait for add hard code");
-    }
+    constexpr auto FieldArray = get_sorted_field_number_array<T>();
+    (serialize(get_field<T, I>(t), std::get<I>(FieldArray)), ...);
   }
   template <typename T>
   void serialize(const T& t, std::size_t field_number) {
@@ -535,10 +720,23 @@ class packer {
             serialize_varint(sz);
             pos_ = new_pos;
           }
+          else if constexpr (I64<value_type> || I32<value_type>) {
+            write_tag(field_number, wire_type);
+            auto size = t.size() * sizeof(value_type);
+            serialize_varint(size);
+            std::memcpy(data_ + pos_, t.data(), size);
+            pos_ += size;
+          }
           else {
             for (auto&& e : t) {
               write_tag(field_number, wire_type);
-              auto sz = get_needed_size(e);
+              std::size_t sz = 0;
+              if constexpr (I32<value_type> || I64<value_type>) {
+                sz = calculate_one_size(e);
+              }
+              else {
+                sz = get_needed_size(e);
+              }
               serialize_varint(sz);
               serialize(e);
             }
@@ -581,8 +779,7 @@ class packer {
   }
   void write_tag(std::size_t field_number, wire_type_t wire_type) {
     auto tag = (field_number << 3) | uint8_t(wire_type);
-    assert(pos_ < max_);
-    data_[pos_++] = tag;
+    serialize_varint(tag);
   }
 
  private:
@@ -688,7 +885,13 @@ class unpacker {
     }
     else {
       std::cout << "field number: " << field_number << std::endl;
-      std::cout << "first field number: " << first_field_number<T> << std::endl;
+      std::cout << "message field number: ";
+      constexpr auto Map = get_field_number_to_index_map<T>();
+      constexpr auto i2n_map = Map.second;
+      for (int i = 0; i < Count; i++) {
+        std::cout << i2n_map.at(i) << " ";
+      }
+      std::cout << std::endl;
       std::cout << "member count: " << Count << std::endl;
       assert(false && "not support now");
       return std::errc::function_not_supported;
@@ -698,16 +901,22 @@ class unpacker {
   template <typename T, std::size_t FieldNumber>
   std::errc deserialize_one(T& t, wire_type_t wire_type) {
     constexpr auto Count = detail::member_count<T>();
-    if constexpr (FieldNumber < first_field_number<T> ||
-                  Count < FieldNumber - first_field_number<T>) {
+    constexpr auto Map = get_field_number_to_index_map<T>();
+    constexpr auto n2i_map = Map.first;
+    constexpr auto i2n_map = Map.second;
+    if constexpr (n2i_map.count(FieldNumber) == 0) {
       std::cout << "field number: " << FieldNumber << std::endl;
-      std::cout << "first field number: " << first_field_number<T> << std::endl;
+      std::cout << "message field number: ";
+      for (int i = 0; i < Count; i++) {
+        std::cout << i2n_map.at(i) << " ";
+      }
+      std::cout << std::endl;
       std::cout << "member count: " << Count << std::endl;
       assert(false && "not support now");
       return std::errc::invalid_argument;
     }
     else {
-      constexpr auto I = FieldNumber - first_field_number<T>;
+      constexpr auto I = n2i_map.at(FieldNumber);
       if constexpr (I < Count) {
         static_assert(I < Count);
         using T_Field = std::tuple_element_t<I, decltype(detail::get_types(
@@ -720,8 +929,11 @@ class unpacker {
       }
       else {
         std::cout << "field number: " << FieldNumber << std::endl;
-        std::cout << "first field number: "
-                  << first_field_number<T> << std::endl;
+        std::cout << "message field number: ";
+        for (int i = 0; i < Count; i++) {
+          std::cout << i2n_map.at(i) << " ";
+        }
+        std::cout << std::endl;
         std::cout << "member count: " << Count << std::endl;
         assert(false && "not support now");
         return std::errc::invalid_argument;
@@ -851,8 +1063,7 @@ class unpacker {
       pos_ += sz;
       return std::errc{};
     }
-    else if constexpr (detail::map_container<Field> ||
-                       detail::container<Field>) {
+    else if constexpr (detail::container<Field>) {
       uint64_t sz = 0;
       auto ec = deserialize_varint(t, sz);
       if (ec != std::errc{}) {
@@ -870,6 +1081,19 @@ class unpacker {
           f.push_back(val);
         }
         return ec;
+      }
+      else if constexpr (I64<value_type> || I32<value_type>) {
+        auto element_size = sz / sizeof(value_type);
+        if (element_size * sizeof(value_type) != sz) {
+          return std::errc::invalid_argument;
+        }
+        if (pos_ + sz > size_) {
+          return std::errc::no_buffer_space;
+        }
+        f.resize(element_size);
+        std::memcpy(&f[0], data_ + pos_, sz);
+        pos_ += sz;
+        return std::errc{};
       }
       else {
         if constexpr (detail::map_container<Field>) {
