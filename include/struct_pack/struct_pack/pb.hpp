@@ -938,7 +938,11 @@ class unpacker {
   template <typename T, std::size_t FieldNumber, wire_type_t WireType>
   std::errc deserialize_one(T& t) {
     static_assert(!std::is_const_v<T>);
-    auto&& f = get_field<T, FieldNumber>(t);
+    constexpr auto Map = get_field_number_to_index_map<T>();
+    constexpr auto n2i_map = Map.first;
+    static_assert(n2i_map.count(FieldNumber) == 1);
+    constexpr auto FieldIndex = n2i_map.at(FieldNumber);
+    auto&& f = get_field<T, FieldIndex>(t);
     static_assert(!std::is_const_v<std::remove_reference_t<decltype(f)>>);
     if constexpr (WireType == wire_type_t::varint) {
       using field_type = std::remove_reference_t<decltype(f)>;
@@ -1131,86 +1135,6 @@ class unpacker {
     }
   }
 
-  template <typename T, std::size_t FieldNumber>
-  auto&& get_field(T& t) {
-    static_assert(FieldNumber <= MaxFieldNumber);
-    static_assert(!detail::optional<T>);
-    constexpr auto Count = detail::member_count<T>();
-    constexpr std::size_t Index = FieldNumber - first_field_number<T>;
-    static_assert(Index >= 0 && Index <= Count);
-    if constexpr (Count == 1) {
-      auto&& [a1] = t;
-      return std::get<Index>(std::forward_as_tuple(a1));
-    }
-    else if constexpr (Count == 2) {
-      auto&& [a1, a2] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2));
-    }
-    else if constexpr (Count == 3) {
-      auto&& [a1, a2, a3] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
-    }
-    else if constexpr (Count == 4) {
-      auto&& [a1, a2, a3, a4] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
-    }
-    else if constexpr (Count == 5) {
-      auto&& [a1, a2, a3, a4, a5] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
-    }
-    else if constexpr (Count == 6) {
-      auto&& [a1, a2, a3, a4, a5, a6] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
-    }
-    else if constexpr (Count == 7) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
-    }
-    else if constexpr (Count == 8) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
-    }
-    else if constexpr (Count == 9) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
-    }
-    else if constexpr (Count == 10) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
-    }
-    else if constexpr (Count == 11) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
-    }
-    else if constexpr (Count == 12) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
-      return std::get<Index>(
-          std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a12));
-    }
-    else if constexpr (Count == 13) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
-                                                   a8, a9, a10, a12, a13));
-    }
-    else if constexpr (Count == 14) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
-      return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7,
-                                                   a8, a9, a10, a12, a13, a14));
-    }
-    else if constexpr (Count == 15) {
-      auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14,
-              a15] = t;
-      return std::get<Index>(std::forward_as_tuple(
-          a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a12, a13, a14, a15));
-    }
-    else {
-      static_assert(!sizeof(T), "wait for add hard code");
-    }
-  }
  private:
   const Byte* data_;
   std::size_t size_;
