@@ -805,83 +805,85 @@ class unpacker {
   template <typename T>
   constexpr std::errc deserialize_one(T& t) {
     constexpr auto Count = detail::member_count<T>();
+    constexpr auto Map = get_field_number_to_index_map<T>();
+    constexpr auto n2i_map = Map.first;
+    constexpr auto i2n_map = Map.second;
     assert(pos_ < size_);
-    auto tag = data_[pos_];
-    uint8_t field_number = uint8_t(data_[pos_]) >> 3;
-    if (field_number <= MaxFieldNumber) {
+    uint32_t tag{};
+    deserialize_varint(t, tag);
+    auto field_number = tag >> 3;
+    if (n2i_map.count(field_number) != 1) {
+      return std::errc::invalid_argument;
     }
-    else {
-      std::cout << field_number << std::endl;
-      assert(field_number <= MaxFieldNumber);
+    auto field_index = n2i_map.at(field_number);
+    auto wire_type = static_cast<wire_type_t>(tag & 0b0000'0111);
+    if (field_index == 0) {
+      const auto FieldNumber = i2n_map.at(0);
+      return deserialize_one<T, 0>(t, wire_type);
     }
-    auto wire_type =
-        static_cast<wire_type_t>(uint8_t(data_[pos_]) & 0b0000'0111);
-    pos_++;
-    if (field_number == 1) {
-      const auto FieldNumber = 1;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 1) {
+      const auto FieldNumber = i2n_map.at(1);
+      return deserialize_one<T, 1>(t, wire_type);
     }
-    else if (field_number == 2) {
-      const auto FieldNumber = 2;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 2) {
+      const auto FieldNumber = i2n_map.at(2);
+      return deserialize_one<T, 2>(t, wire_type);
     }
-    else if (field_number == 3) {
-      const auto FieldNumber = 3;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 3) {
+      const auto FieldNumber = i2n_map.at(3);
+      return deserialize_one<T, 3>(t, wire_type);
     }
-    else if (field_number == 4) {
-      const auto FieldNumber = 4;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 4) {
+      const auto FieldNumber = i2n_map.at(4);
+      return deserialize_one<T, 4>(t, wire_type);
     }
-    else if (field_number == 5) {
-      const auto FieldNumber = 5;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 5) {
+      const auto FieldNumber = i2n_map.at(5);
+      return deserialize_one<T, 5>(t, wire_type);
     }
-    else if (field_number == 6) {
-      const auto FieldNumber = 6;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 6) {
+      const auto FieldNumber = i2n_map.at(6);
+      return deserialize_one<T, 6>(t, wire_type);
     }
-    else if (field_number == 7) {
-      const auto FieldNumber = 7;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 7) {
+      const auto FieldNumber = i2n_map.at(7);
+      return deserialize_one<T, 7>(t, wire_type);
     }
-    else if (field_number == 8) {
-      const auto FieldNumber = 8;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 8) {
+      const auto FieldNumber = i2n_map.at(8);
+      return deserialize_one<T, 8>(t, wire_type);
     }
-    else if (field_number == 9) {
-      const auto FieldNumber = 9;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 9) {
+      const auto FieldNumber = i2n_map.at(9);
+      return deserialize_one<T, 9>(t, wire_type);
     }
-    else if (field_number == 10) {
-      const auto FieldNumber = 10;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 10) {
+      const auto FieldNumber = i2n_map.at(10);
+      return deserialize_one<T, 10>(t, wire_type);
     }
-    else if (field_number == 11) {
-      const auto FieldNumber = 11;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 11) {
+      const auto FieldNumber = i2n_map.at(11);
+      return deserialize_one<T, 11>(t, wire_type);
     }
-    else if (field_number == 12) {
-      const auto FieldNumber = 12;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 12) {
+      const auto FieldNumber = i2n_map.at(12);
+      return deserialize_one<T, 12>(t, wire_type);
     }
-    else if (field_number == 13) {
-      const auto FieldNumber = 13;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 13) {
+      const auto FieldNumber = i2n_map.at(13);
+      return deserialize_one<T, 13>(t, wire_type);
     }
-    else if (field_number == 14) {
-      const auto FieldNumber = 14;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 14) {
+      const auto FieldNumber = i2n_map.at(14);
+      return deserialize_one<T, 14>(t, wire_type);
     }
-    else if (field_number == 15) {
-      const auto FieldNumber = 15;
-      return deserialize_one<T, FieldNumber>(t, wire_type);
+    else if (field_index == 15) {
+      const auto FieldNumber = i2n_map.at(15);
+      return deserialize_one<T, 15>(t, wire_type);
     }
     else {
       std::cout << "field number: " << field_number << std::endl;
       std::cout << "message field number: ";
-      constexpr auto Map = get_field_number_to_index_map<T>();
-      constexpr auto i2n_map = Map.second;
       for (int i = 0; i < Count; i++) {
         std::cout << i2n_map.at(i) << " ";
       }
@@ -892,14 +894,24 @@ class unpacker {
     }
   }
 
-  template <typename T, std::size_t FieldNumber>
+  template <typename T, std::size_t FieldIndex>
   std::errc deserialize_one(T& t, wire_type_t wire_type) {
     constexpr auto Count = detail::member_count<T>();
     constexpr auto Map = get_field_number_to_index_map<T>();
     constexpr auto n2i_map = Map.first;
     constexpr auto i2n_map = Map.second;
-    if constexpr (n2i_map.count(FieldNumber) == 0) {
-      std::cout << "field number: " << FieldNumber << std::endl;
+    if constexpr (FieldIndex < Count) {
+      using T_Field =
+          std::tuple_element_t<FieldIndex,
+                               decltype(detail::get_types(std::declval<T>()))>;
+      constexpr auto field_wire_type = get_wire_type<T_Field>();
+      if (field_wire_type != wire_type) {
+        return std::errc::invalid_argument;
+      }
+      return deserialize_one<T, FieldIndex, field_wire_type>(t);
+    }
+    else {
+      // std::cout << "field number: " << FieldNumber << std::endl;
       std::cout << "message field number: ";
       for (int i = 0; i < Count; i++) {
         std::cout << i2n_map.at(i) << " ";
@@ -909,39 +921,17 @@ class unpacker {
       assert(false && "not support now");
       return std::errc::invalid_argument;
     }
-    else {
-      constexpr auto I = n2i_map.at(FieldNumber);
-      if constexpr (I < Count) {
-        static_assert(I < Count);
-        using T_Field = std::tuple_element_t<I, decltype(detail::get_types(
-                                                    std::declval<T>()))>;
-        constexpr auto field_wire_type = get_wire_type<T_Field>();
-        if (field_wire_type != wire_type) {
-          return std::errc::invalid_argument;
-        }
-        return deserialize_one<T, FieldNumber, field_wire_type>(t);
-      }
-      else {
-        std::cout << "field number: " << FieldNumber << std::endl;
-        std::cout << "message field number: ";
-        for (int i = 0; i < Count; i++) {
-          std::cout << i2n_map.at(i) << " ";
-        }
-        std::cout << std::endl;
-        std::cout << "member count: " << Count << std::endl;
-        assert(false && "not support now");
-        return std::errc::invalid_argument;
-      }
-    }
   }
 
-  template <typename T, std::size_t FieldNumber, wire_type_t WireType>
+  template <typename T, std::size_t FieldIndex, wire_type_t WireType>
   std::errc deserialize_one(T& t) {
     static_assert(!std::is_const_v<T>);
+    constexpr auto Count = detail::member_count<T>();
+    static_assert(FieldIndex < Count);
     constexpr auto Map = get_field_number_to_index_map<T>();
     constexpr auto n2i_map = Map.first;
-    static_assert(n2i_map.count(FieldNumber) == 1);
-    constexpr auto FieldIndex = n2i_map.at(FieldNumber);
+    //    static_assert(n2i_map.count(FieldNumber) == 1);
+    //    constexpr auto FieldIndex = n2i_map.at(FieldNumber);
     auto&& f = get_field<T, FieldIndex>(t);
     static_assert(!std::is_const_v<std::remove_reference_t<decltype(f)>>);
     if constexpr (WireType == wire_type_t::varint) {

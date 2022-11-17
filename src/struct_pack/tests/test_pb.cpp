@@ -787,6 +787,7 @@ struct my_test_field_number_random {
   double d;
   float e;
   std::vector<uint32_t> f;
+  bool operator==(const my_test_field_number_random &) const = default;
 };
 template <>
 constexpr field_number_array_t<my_test_field_number_random>
@@ -816,5 +817,12 @@ TEST_CASE("testing random field number") {
 
   auto b = serialize<std::string>(t);
   CHECK(hex_helper(b) == hex_helper(pb_buf));
+  std::size_t len = 0;
+  auto d_t_ret =
+      deserialize<my_test_field_number_random>(b.data(), b.size(), len);
+  REQUIRE(len == b.size());
+  REQUIRE(d_t_ret);
+  auto d_t = d_t_ret.value();
+  CHECK(d_t == t);
 }
 TEST_SUITE_END;
