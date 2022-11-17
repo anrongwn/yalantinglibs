@@ -974,4 +974,68 @@ TEST_CASE("testing random field number") {
   auto d_t = d_t_ret.value();
   CHECK(d_t == t);
 }
+
+struct my_test_all {
+  double a;
+  float b;
+  varint32_t c;
+  varint64_t d;
+  varuint32_t e;
+  varuint64_t f;
+  sint32_t g;
+  sint64_t h;
+  uint32_t i;
+  uint64_t j;
+  int32_t k;
+  int64_t l;
+  bool m;
+  std::string n;
+  std::string o;
+
+  bool operator==(const my_test_all &rhs) const {
+    return (std::abs(a - rhs.a) < 0.0005) && (std::abs(b - rhs.b) < 0.005) &&
+           c == rhs.c && d == rhs.d && e == rhs.e && f == rhs.f && g == rhs.g &&
+           h == rhs.h && i == rhs.i && j == rhs.j && k == rhs.k && l == rhs.l &&
+           m == rhs.m && n == rhs.n && o == rhs.o;
+  }
+};
+
+TEST_CASE("testing all") {
+  my_test_all t{};
+  MyTestAll pb_t;
+
+  t.a = -100;
+  t.b = -200;
+  t.c = -300;
+  t.d = -2378;
+  t.e = 2323;
+  t.f = 255;
+  t.g = -890;
+  t.h = -2369723;
+  t.i = -23234;
+  t.j = -239223423;
+  t.k = 9232983;
+  t.l = 237982374432;
+  t.m = true;
+  t.n = "testing all types";
+  t.o = "\1\2\3\4\5\t\n666";
+
+  pb_t.set_a(t.a);
+  pb_t.set_b(t.b);
+  pb_t.set_c(t.c);
+  pb_t.set_d(t.d);
+  pb_t.set_e(t.e);
+  pb_t.set_f(t.f);
+  pb_t.set_g(t.g);
+  pb_t.set_h(t.h);
+  pb_t.set_i(t.i);
+  pb_t.set_j(t.j);
+  pb_t.set_k(t.k);
+  pb_t.set_l(t.l);
+  pb_t.set_m(t.m);
+  pb_t.set_n(t.n);
+  pb_t.set_o(t.o);
+
+  check_serialization(t, pb_t);
+}
 TEST_SUITE_END;
