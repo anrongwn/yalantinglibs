@@ -169,16 +169,18 @@ concept VARINT =
 ;
 template <typename T>
 concept I64 =
-    std::same_as<T, int64_t>
+       std::same_as<T, int64_t>
     || std::same_as<T, uint64_t>
     || std::same_as<T, double>
 ;
 template <typename T>
-concept LEN = std::same_as<T, std::string>
+concept LEN =
+       std::same_as<T, std::string>
     || std::is_class_v<T>
     || detail::container<T>;
 template <typename T>
-concept I32 = std::same_as<T, int32_t>
+concept I32 =
+       std::same_as<T, int32_t>
     || std::same_as<T, uint32_t>
     || std::same_as<T, float>
 ;
