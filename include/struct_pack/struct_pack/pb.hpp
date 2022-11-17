@@ -484,8 +484,8 @@ template <std::size_t FieldNumber, typename T>
         return tag_size + calculate_varint_size(t.size()) + sz;
       }
       else if constexpr (I32<value_type> || I64<value_type>) {
-        auto sz = t.size();
-        return tag_size + calculate_varint_size(sz) + sz * sizeof(value_type);
+        auto total = t.size() * sizeof(value_type);
+        return tag_size + calculate_varint_size(total) + total;
       }
       else {
         if constexpr (detail::map_container<T>) {
@@ -718,6 +718,7 @@ class packer {
             write_tag(field_number, wire_type);
             auto size = t.size() * sizeof(value_type);
             serialize_varint(size);
+            assert(pos_ + size <= max_);
             std::memcpy(data_ + pos_, t.data(), size);
             pos_ += size;
           }
