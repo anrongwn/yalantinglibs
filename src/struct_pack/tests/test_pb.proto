@@ -33,7 +33,15 @@ message MyTestFloat {
 message MyTestInt32 {
   int32 a = 1;
 }
-
+message MyTestInt64 {
+  int64 a = 1;
+}
+message MyTestUint32 {
+  uint32 a = 1;
+}
+message MyTestUint64 {
+  uint64 a = 1;
+}
 message MyTestEnum {
   enum Color {
     Red = 0;

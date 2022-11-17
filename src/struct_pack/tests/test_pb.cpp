@@ -366,6 +366,50 @@ TEST_CASE("testing int32") {
   CHECK(d_t.a == t.a);
 }
 
+struct my_test_int64 {
+  varint64_t a;
+  bool operator==(const my_test_int64 &) const = default;
+};
+TEST_CASE("testing int64") {
+  int64_t max_val = 4;
+  max_val *= INT32_MAX;
+  for (int64_t i = 1; i < max_val; i *= -2) {
+    my_test_int64 t{.a = i};
+    MyTestInt64 pb_t;
+    pb_t.set_a(i);
+    check_serialization(t, pb_t);
+  }
+}
+struct my_test_uint32 {
+  varuint64_t a;
+  bool operator==(const my_test_uint32 &) const = default;
+};
+TEST_CASE("testing uint32") {
+  uint32_t max_val = 4;
+  max_val *= INT16_MAX;
+  for (uint32_t i = 1; i < max_val; i *= 2) {
+    my_test_uint32 t{.a = i};
+    MyTestInt64 pb_t;
+    pb_t.set_a(i);
+    check_serialization(t, pb_t);
+  }
+}
+
+struct my_test_uint64 {
+  varuint64_t a;
+  bool operator==(const my_test_uint64 &) const = default;
+};
+TEST_CASE("testing uint64") {
+  uint64_t max_val = 4;
+  max_val *= INT32_MAX;
+  for (uint64_t i = 1; i < max_val; i *= 2) {
+    my_test_int64 t{.a = i};
+    MyTestInt64 pb_t;
+    pb_t.set_a(i);
+    check_serialization(t, pb_t);
+  }
+}
+
 struct my_test_enum {
   enum class Color { Red, Green, Blue, Enum127 = 127, Enum128 = 128 };
   Color color;
