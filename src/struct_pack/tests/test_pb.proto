@@ -32,15 +32,19 @@ message MyTestFloat {
 
 message MyTestInt32 {
   int32 a = 1;
+  repeated int32 b = 2;
 }
 message MyTestInt64 {
   int64 a = 1;
+  repeated int64 b = 2;
 }
 message MyTestUint32 {
   uint32 a = 1;
+  repeated uint32 b = 2;
 }
 message MyTestUint64 {
   uint64 a = 1;
+  repeated uint64 b = 2;
 }
 message MyTestEnum {
   enum Color {
@@ -69,6 +73,18 @@ message MyTestMap {
 message MyTestFixed32 {
   fixed32 a = 1;
   repeated fixed32 b = 2;
+}
+message MyTestFixed64 {
+  fixed64 a = 1;
+  repeated fixed64 b = 2;
+}
+message MyTestSfixed32 {
+  sfixed32 a = 1;
+  repeated sfixed32 b = 2;
+}
+message MyTestSfixed64 {
+  sfixed64 a = 1;
+  repeated sfixed64 b = 2;
 }
 
 message MyTestFieldNumberRandom {

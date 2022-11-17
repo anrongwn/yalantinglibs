@@ -816,6 +816,14 @@ TEST_CASE("testing map") {
     CHECK(d_t.e == t.e);
   }
 }
+template <typename T>
+struct my_test_fixed {
+  using value_type = T;
+  T a;
+  std::vector<T> b;
+  bool operator==(const my_test_fixed &) const = default;
+};
+
 struct my_test_fixed32 {
   uint32_t a;
   std::vector<uint32_t> b;
@@ -860,6 +868,67 @@ TEST_CASE("testing fixed32") {
     CHECK(d_t == t);
   }
 }
+
+using my_test_fixed64 = my_test_fixed<uint64_t>;
+TEST_CASE("testing fixed64") {
+  using T = uint64_t;
+  T max_val = 4;
+  max_val *= INT32_MAX;
+  for (T i = 1; i < max_val; i *= 2) {
+    my_test_fixed64 t{.a = i};
+    MyTestFixed64 pb_t;
+    pb_t.set_a(i);
+    for (T j = 1; j <= i; j *= 2) {
+      pb_t.add_b(j * 3);
+      t.b.push_back(j * 3);
+    }
+    auto pb_buf = pb_t.SerializeAsString();
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+    check_serialization(t, pb_t);
+  }
+}
+
+using my_test_sfixed32 = my_test_fixed<int32_t>;
+TEST_CASE("testing sfixed32") {
+  using T = int32_t;
+  T max_val = 4;
+  max_val *= INT16_MAX;
+  for (T i = 1; i < max_val; i *= -2) {
+    my_test_sfixed32 t{.a = i};
+    MyTestSfixed32 pb_t;
+    pb_t.set_a(i);
+    for (T j = 1; j <= i; j *= -2) {
+      pb_t.add_b(j * -3);
+      t.b.push_back(j * -3);
+    }
+    auto pb_buf = pb_t.SerializeAsString();
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+    check_serialization(t, pb_t);
+  }
+}
+
+using my_test_sfixed64 = my_test_fixed<int64_t>;
+TEST_CASE("testing sfixed64") {
+  using T = int64_t;
+  T max_val = 4;
+  max_val *= INT32_MAX;
+  for (T i = 1; i < max_val; i *= -2) {
+    my_test_sfixed64 t{.a = i};
+    MyTestSfixed64 pb_t;
+    pb_t.set_a(i);
+    for (T j = 1; j <= i; j *= -2) {
+      pb_t.add_b(j * -3);
+      t.b.push_back(j * -3);
+    }
+    auto pb_buf = pb_t.SerializeAsString();
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+    check_serialization(t, pb_t);
+  }
+}
+
 struct my_test_field_number_random {
   varint32_t a;
   sint64_t b;
