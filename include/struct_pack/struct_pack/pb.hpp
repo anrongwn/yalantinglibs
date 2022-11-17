@@ -362,10 +362,6 @@ const auto& get_field(const T& t) {
   }
 }
 
-std::size_t STRUCT_PACK_INLINE calculate_needed_size() { return 0; }
-// template <typename T, typename... Args>
-// std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
-//                                                      const Args&... args);
 template <std::size_t FieldNumber, typename T>
 std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t);
 
@@ -373,8 +369,8 @@ template <typename T>
 consteval auto get_field_number_to_index_map();
 
 template <typename T, std::size_t Size, std::size_t... I>
-std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t,
-                                               std::index_sequence<I...>) {
+std::size_t STRUCT_PACK_INLINE get_needed_size_impl(const T& t,
+                                                    std::index_sequence<I...>) {
   constexpr auto Map = get_field_number_to_index_map<T>();
   constexpr auto i2n_map = Map.second;
   std::array<std::size_t, Size> size_array{
@@ -385,7 +381,7 @@ template <typename T>
 std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
   static_assert(std::is_class_v<T>);
   constexpr auto Count = detail::member_count<T>();
-  return get_needed_size<T, Count>(t, std::make_index_sequence<Count>());
+  return get_needed_size_impl<T, Count>(t, std::make_index_sequence<Count>());
 }
 template <typename U, typename T, unsigned Shift>
 U STRUCT_PACK_INLINE encode_zigzag(T t) {
@@ -520,12 +516,6 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
     else if constexpr (std::is_class_v<T>) {
       auto size = get_needed_size(t);
       return tag_size + calculate_varint_size(size) + size;
-      //      std::size_t ret = 0;
-      //      detail::visit_members(t, [&ret](auto&&... args) {
-      //        ret += calculate_needed_size(args...);
-      //      });
-      //      // tag, len, payload
-      //      return 1 + 1 + ret;
     }
     else {
       static_assert(!sizeof(T), "ERROR type");
@@ -533,28 +523,24 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
     }
   }
   else if constexpr (I64<T>) {
+    static_assert(sizeof(T) == 8);
     if (t == 0) {
       return 0;
     }
-    return 1 + 8;
+    return tag_size + sizeof(T);
   }
   else if constexpr (I32<T>) {
+    static_assert(sizeof(T) == 4);
     if (t == 0) {
       return 0;
     }
-    return 1 + 4;
+    return tag_size + sizeof(T);
   }
   else {
     static_assert(!sizeof(T), "ERROR type");
     return 0;
   }
 }
-// template <typename T, typename... Args>
-// std::size_t STRUCT_PACK_INLINE calculate_needed_size(const T& t,
-//                                                      const Args&... args) {
-//   auto size = calculate_one_size(t);
-//   return size + calculate_needed_size(args...);
-// }
 template <typename T>
 constexpr std::size_t first_field_number = 1;
 
@@ -652,7 +638,11 @@ class packer {
   template <typename T, std::size_t... I>
   void serialize(const T& t, std::index_sequence<I...>) {
     constexpr auto FieldArray = get_sorted_field_number_array<T>();
-    (serialize(get_field<T, I>(t), std::get<I>(FieldArray)), ...);
+    constexpr auto Map = get_field_number_to_index_map<T>();
+    constexpr auto n2i_map = Map.first;
+    (serialize(get_field<T, n2i_map.at(std::get<I>(FieldArray))>(t),
+               std::get<I>(FieldArray)),
+     ...);
   }
   template <typename T>
   void serialize(const T& t, std::size_t field_number) {
@@ -672,6 +662,8 @@ class packer {
           if (v == 0) {
             return;
           }
+          assert(pos_ < max_);
+          // why '0'
           data_[pos_++] = '0';
           serialize_varint(v);
         }

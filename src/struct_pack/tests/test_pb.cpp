@@ -805,21 +805,16 @@ TEST_CASE("testing random field number") {
   pb_t.add_f(1);
   auto pb_buf = pb_t.SerializeAsString();
 
-  my_test_field_number_random t{
-      .a = 666,
-      .b = 999,
-      .c = "random",
-      .d = 3.14,
-      .e = 3344.123,
-      .f = {5, 4, 3, 2, 1}
-      //      .f = {5}
-  };
+  my_test_field_number_random t{.a = 666,
+                                .b = 999,
+                                .c = "random",
+                                .d = 3.14,
+                                .e = 3344.123,
+                                .f = {5, 4, 3, 2, 1}};
   auto size = get_needed_size(t);
   REQUIRE(size == pb_buf.size());
 
   auto b = serialize<std::string>(t);
   CHECK(hex_helper(b) == hex_helper(pb_buf));
-  std::cout << hex_helper(b) << std::endl;
-  std::cout << hex_helper(pb_buf) << std::endl;
 }
 TEST_SUITE_END;
