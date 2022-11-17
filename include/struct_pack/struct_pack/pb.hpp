@@ -120,14 +120,14 @@ using sfixed64_t = int64_t;
 // clang-format off
 template <typename T>
 concept varintable_t =
-    std::is_same_v<T, varint32_t>
+       std::is_same_v<T, varint32_t>
     || std::is_same_v<T, varint64_t>
     || std::is_same_v<T, varuint32_t>
     || std::is_same_v<T, varuint64_t>
 ;
 template <typename T>
 concept sintable_t =
-    std::is_same_v<T, sint32_t>
+       std::is_same_v<T, sint32_t>
     || std::is_same_v<T, sint64_t>
 ;
 // clang-format on
