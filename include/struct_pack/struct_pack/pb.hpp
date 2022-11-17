@@ -184,14 +184,15 @@ concept I32 =
     || std::same_as<T, uint32_t>
     || std::same_as<T, float>
 ;
-
+// There are six wire types: VARINT, I64, LEN, SGROUP, EGROUP, and I32
+// tag = (field_number << 3) | wire_type
 enum class wire_type_t : uint8_t {
-varint = 0,
-i64 = 1,
-len = 2,
-sgroup = 3,
-egroup = 4,
-i32 = 5
+  varint = 0, // int32, int64, uint32, uint64, sint32, sint64, bool, enum
+  i64 = 1,    // fixed64, sfixed64, double
+  len = 2,    // string, bytes, embedded messages, packed repeated fields
+  sgroup = 3, // group start (deprecated)
+  egroup = 4, // group end (deprecated)
+  i32 = 5     // fixed32, sfixed32, float
 };
 template <typename T>
 consteval wire_type_t get_wire_type() {
