@@ -171,7 +171,6 @@ concept I32 = std::same_as<T, int32_t>
     || std::same_as<T, float>
 ;
 
-constexpr static std::size_t MaxFieldNumber = 15;
 enum class wire_type_t : uint8_t { varint, i64, len, sgroup, egroup, i32 };
 template <typename T>
 consteval wire_type_t get_wire_type() {
