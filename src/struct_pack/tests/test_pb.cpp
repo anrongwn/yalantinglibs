@@ -21,6 +21,23 @@
 #include "test_pb.pb.h"
 using namespace doctest;
 using namespace struct_pack::pb;
+
+template <typename T, typename PB_T>
+void check_serialization(const T &t, const PB_T &pb_t) {
+  auto pb_buf = pb_t.SerializeAsString();
+  auto size = get_needed_size(t);
+  REQUIRE(size == pb_buf.size());
+
+  auto b = serialize<std::string>(t);
+  CHECK(hex_helper(b) == hex_helper(pb_buf));
+  std::size_t len = 0;
+  auto d_t_ret = deserialize<T>(b.data(), b.size(), len);
+  REQUIRE(len == b.size());
+  REQUIRE(d_t_ret);
+  auto d_t = d_t_ret.value();
+  CHECK(d_t == t);
+}
+
 struct test1 {
   varint32_t a;
   auto operator<=>(const test1 &) const = default;
@@ -257,6 +274,25 @@ TEST_CASE("testing test4") {
     CHECK(t.d == d_t.d);
     CHECK(t.e == d_t.e);
   }
+}
+
+struct my_test_double {
+  double a;
+  double b;
+  double c;
+  bool operator==(const my_test_double &rhs) const {
+    std::valarray<double> lh({a, b, c});
+    std::valarray<double> rh({rhs.a, rhs.b, rhs.c});
+    return (std::abs(lh - rh) < 0.05f).min();
+  };
+};
+TEST_CASE("testing double") {
+  my_test_double t{.a = 123.456, .b = 0, .c = -678.123};
+  MyTestDouble pb_t;
+  pb_t.set_a(t.a);
+  pb_t.set_b(t.b);
+  pb_t.set_c(t.c);
+  check_serialization(t, pb_t);
 }
 struct my_test_float {
   float a;
