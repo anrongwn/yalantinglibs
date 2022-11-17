@@ -509,15 +509,17 @@ std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
           static_assert(!detail::map_container<mapped_type>,
                         "the mapped_type can be any type except another map.");
         }
-        std::size_t sz = 0;
-        for (auto&& i : t) {
-          sz += get_needed_size(i);
+        std::size_t total = 0;
+        for (auto&& e : t) {
+          auto size = get_needed_size(e);
+          total += tag_size + calculate_varint_size(size) + size;
         }
-        return sz;
+        return total;
       }
     }
     else if constexpr (std::is_class_v<T>) {
-      return get_needed_size(t);
+      auto size = get_needed_size(t);
+      return tag_size + calculate_varint_size(size) + size;
       //      std::size_t ret = 0;
       //      detail::visit_members(t, [&ret](auto&&... args) {
       //        ret += calculate_needed_size(args...);

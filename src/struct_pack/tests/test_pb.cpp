@@ -471,7 +471,7 @@ TEST_CASE("testing nested repeated message") {
     my_test_repeated_message t{};
     t.fs = {{1, 2, 3}};
     auto b = serialize<std::string>(t);
-    REQUIRE(b == pb_b);
+    REQUIRE(hex_helper(b) == hex_helper(pb_b));
     std::size_t len = 0;
     auto d_t_ret =
         deserialize<my_test_repeated_message>(b.data(), b.size(), len);
@@ -743,22 +743,22 @@ struct my_test_fixed32 {
 };
 TEST_CASE("testing fixed32") {
   my_test_fixed32 t{};
-  //  SUBCASE("single fixed") {
-  //    t.a = 888;
-  //    MyTestFixed32 pb_t;
-  //    pb_t.set_a(888);
-  //    auto pb_buf = pb_t.SerializeAsString();
-  //    auto size = get_needed_size(t);
-  //    REQUIRE(size == pb_buf.size());
-  //    auto b = serialize<std::string>(t);
-  //    REQUIRE(hex_helper(b) == hex_helper(pb_buf));
-  //    std::size_t len = 0;
-  //    auto d_t_ret = deserialize<my_test_fixed32>(b.data(), b.size(), len);
-  //    REQUIRE(len == b.size());
-  //    REQUIRE(d_t_ret);
-  //    auto d_t = d_t_ret.value();
-  //    CHECK(d_t == t);
-  //  }
+  SUBCASE("single fixed") {
+    t.a = 888;
+    MyTestFixed32 pb_t;
+    pb_t.set_a(888);
+    auto pb_buf = pb_t.SerializeAsString();
+    auto size = get_needed_size(t);
+    REQUIRE(size == pb_buf.size());
+    auto b = serialize<std::string>(t);
+    REQUIRE(hex_helper(b) == hex_helper(pb_buf));
+    std::size_t len = 0;
+    auto d_t_ret = deserialize<my_test_fixed32>(b.data(), b.size(), len);
+    REQUIRE(len == b.size());
+    REQUIRE(d_t_ret);
+    auto d_t = d_t_ret.value();
+    CHECK(d_t == t);
+  }
   SUBCASE("only repeated") {
     t.b = {5, 4, 3, 2, 1};
     MyTestFixed32 pb_t;
@@ -815,7 +815,7 @@ TEST_CASE("testing random field number") {
       //      .f = {5}
   };
   auto size = get_needed_size(t);
-  //  REQUIRE(size == pb_buf.size());
+  REQUIRE(size == pb_buf.size());
 
   auto b = serialize<std::string>(t);
   CHECK(hex_helper(b) == hex_helper(pb_buf));
