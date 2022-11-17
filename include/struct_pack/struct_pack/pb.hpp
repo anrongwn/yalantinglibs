@@ -122,6 +122,9 @@ consteval auto get_field_varint_type() {
   if constexpr (detail::optional<T>) {
     return get_field_varint_type<typename T::value_type>();
   }
+  else if constexpr (std::same_as<T, bool>) {
+    return uint64_t{};
+  }
   else if constexpr (std::is_enum_v<T>) {
     return uint64_t{};
   }
