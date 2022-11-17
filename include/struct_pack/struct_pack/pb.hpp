@@ -545,17 +545,17 @@ template <typename T>
 constexpr field_number_array_t<T> field_number_seq{};
 
 template <typename... Args>
-constexpr bool all_field_number_greater_than_zero(Args... args) {
+consteval bool all_field_number_greater_than_zero(Args... args) {
   return (... && args);
 }
 
 template <typename... Args>
-constexpr bool field_number_seq_not_init(Args... args) {
+consteval bool field_number_seq_not_init(Args... args) {
   return (... && (args == 0));
 }
 
 template <typename T>
-constexpr bool has_duplicate_element() {
+consteval bool has_duplicate_element() {
   constexpr auto seq = field_number_seq<T>;
   // TODO: a better way to check duplicate
   for (int i = 0; i < seq.size(); ++i) {
@@ -569,7 +569,7 @@ constexpr bool has_duplicate_element() {
 }
 
 template <typename T, std::size_t Size, std::size_t... I>
-constexpr auto get_field_number_to_index_map_impl(std::index_sequence<I...>) {
+consteval auto get_field_number_to_index_map_impl(std::index_sequence<I...>) {
   constexpr auto seq = field_number_seq<T>;
   if constexpr (field_number_seq_not_init(std::get<I>(seq)...)) {
     frozen::map<std::size_t, std::size_t, Size> n2i{
