@@ -1211,15 +1211,6 @@ class unpacker {
       static_assert(!sizeof(T), "wait for add hard code");
     }
   }
-
-  template <typename T, std::size_t FieldNumber>
-  consteval decltype(auto) get_field_wire_type() {
-    constexpr auto I = FieldNumber - first_field_number<T>;
-    using T_Field =
-        std::tuple_element_t<I, decltype(detail::get_types(std::declval<T>()))>;
-    return get_wire_type<T_Field>();
-  }
-
  private:
   const Byte* data_;
   std::size_t size_;
