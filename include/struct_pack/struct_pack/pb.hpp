@@ -118,7 +118,7 @@ template <typename T>
 concept sintable_t = std::is_same_v<T, sint32_t> || std::is_same_v<T, sint64_t>;
 
 template <typename T>
-constexpr auto get_field_varint_type(const T& t) {
+consteval auto get_field_varint_type(const T& t) {
   if constexpr (detail::optional<T>) {
     return get_field_varint_type(std::declval<typename T::value_type>());
   }
