@@ -118,9 +118,9 @@ template <typename T>
 concept sintable_t = std::is_same_v<T, sint32_t> || std::is_same_v<T, sint64_t>;
 
 template <typename T>
-consteval auto get_field_varint_type(const T& t) {
+consteval auto get_field_varint_type() {
   if constexpr (detail::optional<T>) {
-    return get_field_varint_type(std::declval<typename T::value_type>());
+    return get_field_varint_type<typename T::value_type>();
   }
   else if constexpr (std::is_enum_v<T>) {
     return uint64_t{};
@@ -137,7 +137,7 @@ consteval auto get_field_varint_type(const T& t) {
 }
 
 template <typename T>
-using field_varint_t = decltype(get_field_varint_type(std::declval<T>()));
+using field_varint_t = decltype(get_field_varint_type<T>());
 
 // clang-format off
 template <typename T>
