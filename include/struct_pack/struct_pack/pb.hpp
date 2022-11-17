@@ -195,7 +195,7 @@ consteval wire_type_t get_wire_type() {
 }
 // clang-format on
 template <typename T, std::size_t FieldIndex>
-auto& get_field(T& t) {
+[[nodiscard]] STRUCT_PACK_INLINE auto& get_field(T& t) {
   static_assert(!detail::optional<T>);
   constexpr auto Count = detail::member_count<T>();
   constexpr auto Index = FieldIndex;
@@ -274,7 +274,7 @@ auto& get_field(T& t) {
   }
 }
 template <typename T, std::size_t FieldIndex>
-const auto& get_field(const T& t) {
+[[nodiscard]] STRUCT_PACK_INLINE const auto& get_field(const T& t) {
   static_assert(!detail::optional<T>);
   constexpr auto Count = detail::member_count<T>();
   constexpr auto Index = FieldIndex;
@@ -354,14 +354,14 @@ const auto& get_field(const T& t) {
 }
 
 template <std::size_t FieldNumber, typename T>
-std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t);
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t);
 
 template <typename T>
 consteval auto get_field_number_to_index_map();
 
 template <typename T, std::size_t Size, std::size_t... I>
-std::size_t STRUCT_PACK_INLINE get_needed_size_impl(const T& t,
-                                                    std::index_sequence<I...>) {
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t get_needed_size_impl(
+    const T& t, std::index_sequence<I...>) {
   constexpr auto Map = get_field_number_to_index_map<T>();
   constexpr auto i2n_map = Map.second;
   std::array<std::size_t, Size> size_array{
@@ -369,18 +369,18 @@ std::size_t STRUCT_PACK_INLINE get_needed_size_impl(const T& t,
   return std::accumulate(size_array.begin(), size_array.end(), 0);
 }
 template <typename T>
-std::size_t STRUCT_PACK_INLINE get_needed_size(const T& t) {
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t get_needed_size(const T& t) {
   static_assert(std::is_class_v<T>);
   constexpr auto Count = detail::member_count<T>();
   return get_needed_size_impl<T, Count>(t, std::make_index_sequence<Count>());
 }
 template <typename U, typename T, unsigned Shift>
-U STRUCT_PACK_INLINE encode_zigzag(T t) {
+[[nodiscard]] STRUCT_PACK_INLINE U encode_zigzag(T t) {
   return (static_cast<U>(t) << 1U) ^
          static_cast<U>(-static_cast<T>(static_cast<U>(t) >> Shift));
 }
 template <typename T>
-auto STRUCT_PACK_INLINE encode_zigzag(T t) {
+[[nodiscard]] STRUCT_PACK_INLINE auto encode_zigzag(T t) {
   if constexpr (std::is_same_v<T, int32_t>) {
     return encode_zigzag<uint32_t, int32_t, 31U>(t);
   }
@@ -392,11 +392,11 @@ auto STRUCT_PACK_INLINE encode_zigzag(T t) {
   }
 }
 template <typename T, typename U>
-T STRUCT_PACK_INLINE decode_zigzag(U u) {
+[[nodiscard]] STRUCT_PACK_INLINE T decode_zigzag(U u) {
   return static_cast<T>((u >> 1U)) ^ static_cast<U>(-static_cast<T>(u & 1U));
 }
 template <typename T>
-T STRUCT_PACK_INLINE decode_zigzag(T t) {
+[[nodiscard]] STRUCT_PACK_INLINE T decode_zigzag(T t) {
   if constexpr (std::is_same_v<T, int32_t>) {
     return decode_zigzag<int32_t, uint32_t>(t);
   }
@@ -408,7 +408,8 @@ T STRUCT_PACK_INLINE decode_zigzag(T t) {
   }
 }
 template <typename T>
-constexpr std::size_t STRUCT_PACK_INLINE calculate_varint_size(T t) {
+[[nodiscard]] STRUCT_PACK_INLINE constexpr std::size_t calculate_varint_size(
+    T t) {
   if constexpr (std::unsigned_integral<T>) {
     std::size_t ret = 0;
     do {
@@ -437,7 +438,7 @@ consteval std::size_t calculate_tag_size() {
   return calculate_varint_size(tag);
 }
 template <std::size_t FieldNumber, typename T>
-std::size_t STRUCT_PACK_INLINE calculate_one_size(const T& t) {
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t) {
   constexpr auto wire_type = get_wire_type<T>();
   constexpr auto tag_size = calculate_tag_size<FieldNumber, wire_type>();
   if constexpr (detail::optional<T>) {
@@ -629,14 +630,14 @@ class packer {
  public:
   packer(Byte* data, std::size_t max) : data_(data), max_(max) {}
   template <typename T>
-  void serialize(const T& t) {
+  STRUCT_PACK_INLINE void serialize(const T& t) {
     constexpr auto Count = detail::member_count<T>();
     serialize(t, std::make_index_sequence<Count>());
   }
 
  private:
   template <typename T, std::size_t... I>
-  void serialize(const T& t, std::index_sequence<I...>) {
+  STRUCT_PACK_INLINE void serialize(const T& t, std::index_sequence<I...>) {
     constexpr auto FieldArray = get_sorted_field_number_array<T>();
     constexpr auto n2i_map = get_field_n2i_map<T>();
     (serialize(get_field<T, n2i_map.at(std::get<I>(FieldArray))>(t),
@@ -644,7 +645,7 @@ class packer {
      ...);
   }
   template <typename T>
-  void serialize(const T& t, std::size_t field_number) {
+  STRUCT_PACK_INLINE void serialize(const T& t, std::size_t field_number) {
     if constexpr (detail::optional<T>) {
       if (t.has_value()) {
         serialize(t.value(), field_number);
@@ -749,7 +750,7 @@ class packer {
     }
   }
   template <typename T>
-  void serialize_varint(T t) {
+  STRUCT_PACK_INLINE void serialize_varint(T t) {
     if constexpr (varintable_t<T>) {
       using value_type = std::make_unsigned_t<typename T::value_type>;
       serialize_varint(uint64_t(t));
@@ -770,7 +771,8 @@ class packer {
       data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
     }
   }
-  void write_tag(std::size_t field_number, wire_type_t wire_type) {
+  STRUCT_PACK_INLINE void write_tag(std::size_t field_number,
+                                    wire_type_t wire_type) {
     auto tag = (field_number << 3) | uint8_t(wire_type);
     serialize_varint(tag);
   }
@@ -786,7 +788,7 @@ class unpacker {
  public:
   unpacker(const Byte* data, std::size_t size) : data_(data), size_(size) {}
   template <typename T>
-  constexpr std::errc deserialize(T& t) {
+  [[nodiscard]] STRUCT_PACK_INLINE constexpr std::errc deserialize(T& t) {
     if (size_ == 0) [[unlikely]] {
       return std::errc{};
     }
@@ -798,16 +800,21 @@ class unpacker {
     }
     return std::errc{};
   }
-  [[nodiscard]] std::size_t consume_len() const { return pos_; }
+  [[nodiscard]] STRUCT_PACK_INLINE std::size_t consume_len() const {
+    return pos_;
+  }
 
  private:
   template <typename T>
-  constexpr std::errc deserialize_one(T& t) {
+  [[nodiscard]] STRUCT_PACK_INLINE constexpr std::errc deserialize_one(T& t) {
     constexpr auto n2i_map = get_field_n2i_map<T>();
     constexpr auto i2n_map = get_field_i2n_map<T>();
     assert(pos_ < size_);
     uint32_t tag{};
-    deserialize_varint(t, tag);
+    auto ec = read_tag(t, tag);
+    if (ec != std::errc{}) {
+      return ec;
+    }
     auto field_number = tag >> 3;
     if (n2i_map.count(field_number) != 1) {
       return std::errc::invalid_argument;
@@ -820,7 +827,8 @@ class unpacker {
   }
 
   template <std::size_t FieldIndex, typename T>
-  std::errc deserialize_one(T& t, wire_type_t wire_type) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_one(
+      T& t, wire_type_t wire_type) {
     constexpr auto Count = detail::member_count<T>();
     constexpr auto Map = get_field_number_to_index_map<T>();
     constexpr auto n2i_map = Map.first;
@@ -843,7 +851,7 @@ class unpacker {
   }
 
   template <typename T, std::size_t FieldIndex, wire_type_t WireType>
-  std::errc deserialize_one(T& t) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_one(T& t) {
     static_assert(!std::is_const_v<T>);
     constexpr auto Count = detail::member_count<T>();
     static_assert(FieldIndex < Count);
@@ -890,7 +898,8 @@ class unpacker {
     }
   }
   template <typename T, typename Field>
-  std::errc deserialize_varint(T& t, Field& f) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_varint(T& t,
+                                                                Field& f) {
     if constexpr (detail::optional<Field>) {
       return deserialize_varint(t, f.value());
     }
@@ -929,7 +938,8 @@ class unpacker {
   }
 
   template <typename T, typename Field>
-  std::errc deserialize_fixedint(T& t, Field& f) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_fixedint(T& t,
+                                                                  Field& f) {
     if constexpr (detail::optional<Field>) {
       return deserialize_fixedint(t, f.value());
     }
@@ -945,7 +955,7 @@ class unpacker {
   }
 
   template <typename T, typename Field>
-  std::errc deserialize_len(T& t, Field& f) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_len(T& t, Field& f) {
     if constexpr (detail::optional<Field>) {
       using value_type = typename Field::value_type;
       value_type inner;
@@ -1043,8 +1053,14 @@ class unpacker {
   }
 
   template <typename T>
-  void diagnose(std::optional<std::size_t> field_index = std::nullopt,
-                std::optional<std::size_t> field_number = std::nullopt) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc read_tag(T& t, uint32_t& tag) {
+    return deserialize_varint(t, tag);
+  }
+
+  template <typename T>
+  [[maybe_unused]] void diagnose(
+      std::optional<std::size_t> field_index = std::nullopt,
+      std::optional<std::size_t> field_number = std::nullopt) {
     constexpr auto Count = detail::member_count<T>();
     constexpr auto i2n_map = get_field_i2n_map<T>();
     std::cout << "message field number: ";
@@ -1064,8 +1080,8 @@ class unpacker {
   template <std::size_t FieldIndex, typename Unpacker, typename T,
             typename WireType>
   struct unpacker_helper {
-    static STRUCT_PACK_INLINE std::errc run(Unpacker& o, T& t,
-                                            WireType wire_type) {
+    [[nodiscard]] STRUCT_PACK_INLINE static std::errc run(Unpacker& o, T& t,
+                                                          WireType wire_type) {
       static_assert(std::same_as<WireType, wire_type_t>);
       return o.template deserialize_one<FieldIndex>(t, wire_type);
     }
