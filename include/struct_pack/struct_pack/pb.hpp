@@ -102,14 +102,6 @@ class sint {
   T val;
 };
 
-template <typename T>
-concept varintable =
-    requires { std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>; };
-
-template <typename T>
-concept sintable =
-    requires { std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t>; };
-
 using varint32_t = varint<int32_t>;
 using varuint32_t = varint<uint32_t>;
 using varint64_t = varint<int64_t>;
