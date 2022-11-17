@@ -598,11 +598,20 @@ consteval auto get_field_number_to_index_map() {
   return get_field_number_to_index_map_impl<T, Count>(
       std::make_index_sequence<Count>());
 }
+template <typename T>
+consteval auto get_field_n2i_map() {
+  constexpr auto Map = get_field_number_to_index_map<T>();
+  return Map.first;
+}
+template <typename T>
+consteval auto get_field_i2n_map() {
+  constexpr auto Map = get_field_number_to_index_map<T>();
+  return Map.second;
+}
 
 template <typename T, std::size_t Size, std::size_t... I>
 consteval auto get_sorted_field_number_array_impl(std::index_sequence<I...>) {
-  constexpr auto Map = get_field_number_to_index_map<T>();
-  constexpr auto i2n_map = Map.second;
+  constexpr auto i2n_map = get_field_i2n_map<T>();
   std::array<std::size_t, Size> array{i2n_map.at(I)...};
   std::sort(array.begin(), array.end());
   return array;
@@ -629,8 +638,7 @@ class packer {
   template <typename T, std::size_t... I>
   void serialize(const T& t, std::index_sequence<I...>) {
     constexpr auto FieldArray = get_sorted_field_number_array<T>();
-    constexpr auto Map = get_field_number_to_index_map<T>();
-    constexpr auto n2i_map = Map.first;
+    constexpr auto n2i_map = get_field_n2i_map<T>();
     (serialize(get_field<T, n2i_map.at(std::get<I>(FieldArray))>(t),
                std::get<I>(FieldArray)),
      ...);
@@ -795,10 +803,8 @@ class unpacker {
  private:
   template <typename T>
   constexpr std::errc deserialize_one(T& t) {
-    constexpr auto Count = detail::member_count<T>();
-    constexpr auto Map = get_field_number_to_index_map<T>();
-    constexpr auto n2i_map = Map.first;
-    constexpr auto i2n_map = Map.second;
+    constexpr auto n2i_map = get_field_n2i_map<T>();
+    constexpr auto i2n_map = get_field_i2n_map<T>();
     assert(pos_ < size_);
     uint32_t tag{};
     deserialize_varint(t, tag);
@@ -873,13 +879,7 @@ class unpacker {
       return deserialize_one<T, 15>(t, wire_type);
     }
     else {
-      std::cout << "field number: " << field_number << std::endl;
-      std::cout << "message field number: ";
-      for (int i = 0; i < Count; i++) {
-        std::cout << i2n_map.at(i) << " ";
-      }
-      std::cout << std::endl;
-      std::cout << "member count: " << Count << std::endl;
+      diagnose<T>(field_index, field_number);
       assert(false && "not support now");
       return std::errc::function_not_supported;
     }
@@ -902,13 +902,7 @@ class unpacker {
       return deserialize_one<T, FieldIndex, field_wire_type>(t);
     }
     else {
-      // std::cout << "field number: " << FieldNumber << std::endl;
-      std::cout << "message field number: ";
-      for (int i = 0; i < Count; i++) {
-        std::cout << i2n_map.at(i) << " ";
-      }
-      std::cout << std::endl;
-      std::cout << "member count: " << Count << std::endl;
+      diagnose<T>(FieldIndex);
       assert(false && "not support now");
       return std::errc::invalid_argument;
     }
@@ -921,8 +915,6 @@ class unpacker {
     static_assert(FieldIndex < Count);
     constexpr auto Map = get_field_number_to_index_map<T>();
     constexpr auto n2i_map = Map.first;
-    //    static_assert(n2i_map.count(FieldNumber) == 1);
-    //    constexpr auto FieldIndex = n2i_map.at(FieldNumber);
     auto&& f = get_field<T, FieldIndex>(t);
     static_assert(!std::is_const_v<std::remove_reference_t<decltype(f)>>);
     if constexpr (WireType == wire_type_t::varint) {
@@ -1114,6 +1106,25 @@ class unpacker {
       pos_ += sz;
       return ec;
     }
+  }
+
+  template <typename T>
+  void diagnose(std::optional<std::size_t> field_index = std::nullopt,
+                std::optional<std::size_t> field_number = std::nullopt) {
+    constexpr auto Count = detail::member_count<T>();
+    constexpr auto i2n_map = get_field_i2n_map<T>();
+    std::cout << "message field number: ";
+    for (int i = 0; i < Count; i++) {
+      std::cout << i2n_map.at(i) << " ";
+    }
+    std::cout << std::endl;
+    if (field_number) {
+      std::cout << "current field number: " << *field_number << std::endl;
+    }
+    if (field_index) {
+      std::cout << "current field index: " << *field_index << std::endl;
+    }
+    std::cout << "member count: " << Count << std::endl;
   }
 
  private:
