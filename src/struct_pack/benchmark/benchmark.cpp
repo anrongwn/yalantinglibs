@@ -25,9 +25,11 @@
 #include "config.hpp"
 #include "native_pb.hpp"
 #include "no_op.h"
+#include "protopuf_pb.hpp"
+#include "protozero_pb.hpp"
 #include "struct_pack/struct_pack.hpp"
 #include "struct_pb.hpp"
-
+using pp::operator""_f;
 class ScopedTimer {
  public:
   ScopedTimer(const char *name)
@@ -172,13 +174,16 @@ std::vector<char> buffer1;
 tbuffer buffer2;
 std::string buffer3;
 std::string buffer4;
+using buffer5_t = std::array<std::byte, 3000 * OBJECT_COUNT>;
+buffer5_t buffer5;
 
-template <typename T, typename PB, typename BinPB>
-void bench(T &t, PB &p, BinPB &bin, std::string tag) {
+template <typename T, typename PB, typename BinPB, typename PP_PB>
+void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
   buffer1.clear();
   buffer2.clear();
   buffer3.clear();
   buffer4.clear();
+  buffer5 = buffer5_t{};
 
   std::cout << "------- start benchmark " << tag << " -------\n";
 
@@ -190,14 +195,16 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
   auto pb_sz = p.SerializeAsString().size();
   buffer3.reserve(pb_sz * SAMPLES_COUNT);
   buffer4.reserve(struct_pack::pb::get_needed_size(bin));
+  // buffer5.reserve(pb_sz);
 
-  std::array<std::array<uint64_t, 10>, 8> arr;
+  std::array<std::array<uint64_t, 10>, 10> arr;
 
   for (int i = 0; i < 10; ++i) {
     buffer1.clear();
     buffer2.clear();
     buffer3.clear();
     buffer4.clear();
+    buffer5 = buffer5_t{};
     {
       ScopedTimer timer("serialize structpack", arr[0][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
@@ -230,6 +237,13 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
       no_op();
     }
     assert(buffer3 == buffer4);
+    {
+      ScopedTimer timer("serialize pp    pb", arr[8][i]);
+      for (int j = 0; j < SAMPLES_COUNT; j++) {
+        pp::message_coder<PP_PB>::encode(cmp_pp_pb, buffer5);
+      }
+      no_op();
+    }
   }
 #ifdef HAVE_MSGPACK
   msgpack::unpacked unpacked;
@@ -282,6 +296,14 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
         assert(ret.template value() == bin);
       }
     }
+    {
+      ScopedTimer timer("deserialize pp    pb", arr[9][i]);
+      std::size_t len = 0;
+      for (size_t j = 0; j < SAMPLES_COUNT; j++) {
+        pp::message_coder<PP_PB>::decode(buffer5);
+        no_op();
+      }
+    }
   }
 
   std::cout << tag << " "
@@ -301,7 +323,11 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
   std::cout << tag << " "
             << "struct_pb   serialize average: " << get_avg(arr[6])
             << ", deserialize average: " << get_avg(arr[7])
-            << ", buf size: " << buffer3.size() / SAMPLES_COUNT << "\n";
+            << ", buf size: " << buffer4.size() / SAMPLES_COUNT << "\n";
+  std::cout << tag << " "
+            << "protopuf    serialize average: " << get_avg(arr[8])
+            << ", deserialize average: " << get_avg(arr[9]) << "\n";
+  //<< ", buf size: " << buffer4.size() / SAMPLES_COUNT << "\n";
 #ifdef HAVE_MSGPACK
   std::cout << tag << " "
             << "struct_pack serialize is   "
@@ -316,6 +342,10 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
             << "struct_pb   serialize is   "
             << (double)get_avg(arr[2]) / get_avg(arr[6])
             << " times faster than protobuf\n";
+  std::cout << tag << " "
+            << "struct_pb   serialize is   "
+            << (double)get_avg(arr[8]) / get_avg(arr[6])
+            << " times faster than protopuf\n";
 #ifdef HAVE_MSGPACK
   std::cout << tag << " "
             << "struct_pack deserialize is "
@@ -330,6 +360,10 @@ void bench(T &t, PB &p, BinPB &bin, std::string tag) {
             << "struct_pb   deserialize is "
             << (double)get_avg(arr[5]) / get_avg(arr[7])
             << " times faster than protobuf\n";
+  std::cout << tag << " "
+            << "struct_pb   deserialize is "
+            << (double)get_avg(arr[9]) / get_avg(arr[7])
+            << " times faster than protopuf\n";
   std::cout << "------- end benchmark   " << tag << " -------\n\n";
 }
 
@@ -390,32 +424,39 @@ auto pbs = create_rects_pb(OBJECT_COUNT);
 auto pb = *(pbs.rect32_list().begin());
 auto bin_pbs = struct_pb::create_rects(OBJECT_COUNT);
 auto bin_pb = bin_pbs.rect32_list[0];
+auto cmp_pp_pbs = pp_pb::create_rects(OBJECT_COUNT);
+auto cmp_pp_pb = cmp_pp_pbs["rect32_list"_f][0];
 
 auto v1 = create_persons(OBJECT_COUNT);
 auto pbs1 = create_persons_pb(OBJECT_COUNT);
 auto pb1 = *(pbs1.person_list().begin());
 auto bin_pbs1 = struct_pb::create_persons(OBJECT_COUNT);
 auto bin_pb1 = bin_pbs1.person_list[0];
+auto cmp_pp_pbs1 = pp_pb::create_persons(OBJECT_COUNT);
+auto cmp_pp_pb1 = cmp_pp_pbs1["person_list"_f][0];
 
 auto v2 = create_monsters(OBJECT_COUNT);
 auto pbs2 = create_monsters_pb(OBJECT_COUNT);
 auto pb2 = *(pbs2.monsters().begin());
 auto bin_pbs2 = struct_pb::create_monsters(OBJECT_COUNT);
 auto bin_pb2 = bin_pbs2.monsters[0];
+auto cmp_pp_pbs2 = pp_pb::create_monsters(OBJECT_COUNT);
+auto cmp_pp_pb2 = cmp_pp_pbs2["monsters"_f][0];
 
 int main() {
   {
-    bench(v[0], pb, bin_pb, "1 rect");
-    bench(v, pbs, bin_pbs, "20 rect");
+    bench(v[0], pb, bin_pb, cmp_pp_pb, "1 rect");
+    bench(v, pbs, bin_pbs, cmp_pp_pbs, "20 rect");
   }
 
   {
-    bench(v1[0], pb1, bin_pb1, "1 person");
-    bench(v1, pbs1, bin_pbs1, "20 person");
+    bench(v1[0], pb1, bin_pb1, cmp_pp_pb1, "1 person");
+    bench(v1, pbs1, bin_pbs1, cmp_pp_pbs1, "20 person");
   }
 
   {
-    bench(v2[0], pb2, bin_pb2, "1 monster");
-    bench(v2, pbs2, bin_pbs2, "20 monster");
+    bench(v2[0], pb2, bin_pb2, cmp_pp_pb2, "1 monster");
+    bench(v2, pbs2, bin_pbs2, cmp_pp_pbs2, "20 monster");
   }
+  return 0;
 }
