@@ -16,83 +16,122 @@
 #pragma once
 #include "data_def.hpp"
 #include "protozero/pbf_reader.hpp"
+#include "protozero/pbf_writer.hpp"
 
 namespace protozero_pb {
 using namespace protozero;
-void deserialize(Vec3& vec3, data_view buffer) {
-  pbf_reader message{buffer};
-  while (message.next()) {
-    switch (message.tag()) {
+void serialize(const Vec3& vec3, pbf_writer& writer) {
+  writer.add_float(1, vec3.x);
+  writer.add_float(2, vec3.y);
+  writer.add_float(3, vec3.z);
+}
+void serialize(const Weapon& weapon, pbf_writer& writer) {
+  writer.add_string(1, weapon.name);
+  writer.add_int32(2, weapon.damage);
+}
+void serialize(const Monster& monster, pbf_writer& writer) {
+  {
+    pbf_writer pbf_sub{writer, 1};
+    serialize(monster.pos, pbf_sub);
+  }
+  writer.add_int32(2, monster.mana);
+  writer.add_int32(3, monster.hp);
+  writer.add_string(4, monster.name);
+  writer.add_bytes(5, monster.inventory);
+  writer.add_enum(6, monster.color);
+  {
+    for (const auto& weapon : monster.weapons) {
+      pbf_writer pbf_sub{writer, 7};
+      serialize(weapon, pbf_sub);
+    }
+  }
+  {
+    pbf_writer pbf_sub{writer, 8};
+    serialize(monster.equipped, pbf_sub);
+  }
+  for (const auto& v : monster.path) {
+    pbf_writer pbf_sub{writer, 9};
+    serialize(v, pbf_sub);
+  }
+}
+template <typename T>
+void serialize(const std::vector<T>& ms, pbf_writer& writer) {
+  for (const auto& m : ms) {
+    pbf_writer pbf_sub{writer, 1};
+    serialize(m, pbf_sub);
+  }
+}
+void deserialize(Vec3& vec3, pbf_reader& reader) {
+  while (reader.next()) {
+    switch (reader.tag()) {
       case 1:
-        vec3.x = message.get_float();
+        vec3.x = reader.get_float();
         break;
       case 2:
-        vec3.y = message.get_float();
+        vec3.y = reader.get_float();
         break;
       case 3:
-        vec3.z = message.get_float();
+        vec3.z = reader.get_float();
         break;
       default:
-        message.skip();
+        reader.skip();
     }
   }
 }
-void deserialize(Weapon& weapon, data_view buffer) {
-  pbf_reader message{buffer};
-  while (message.next()) {
-    switch (message.tag()) {
+void deserialize(Weapon& weapon, pbf_reader& reader) {
+  while (reader.next()) {
+    switch (reader.tag()) {
       case 1:
-        weapon.name = message.get_string();
+        weapon.name = reader.get_string();
         break;
       case 2:
-        weapon.damage = message.get_int32();
+        weapon.damage = reader.get_int32();
         break;
       default:
-        message.skip();
+        reader.skip();
     }
   }
 }
-void deserialize(Monster& monster, data_view buffer) {
-  pbf_reader message{buffer};
-  while (message.next()) {
-    switch (message.tag()) {
+void deserialize(Monster& monster, pbf_reader& reader) {
+  while (reader.next()) {
+    switch (reader.tag()) {
       case 1: {
-        auto buf = message.get_view();
-        deserialize(monster.pos, buf);
+        auto reader_sub = reader.get_message();
+        deserialize(monster.pos, reader_sub);
         break;
       }
       case 2:
-        monster.mana = message.get_int32();
+        monster.mana = reader.get_int32();
         break;
       case 3:
-        monster.hp = message.get_int32();
+        monster.hp = reader.get_int32();
         break;
       case 4:
-        monster.name = message.get_string();
+        monster.name = reader.get_string();
         break;
       case 5: {
-        monster.inventory = message.get_string();
+        monster.inventory = reader.get_string();
         break;
       }
       case 6:
-        monster.color = static_cast<Color>(message.get_enum());
+        monster.color = static_cast<Color>(reader.get_enum());
         break;
       case 7: {
-        auto buf = message.get_view();
+        auto reader_sub = reader.get_message();
         Weapon w{};
-        deserialize(w, buf);
+        deserialize(w, reader_sub);
         monster.weapons.push_back(w);
         break;
       }
       case 8: {
-        auto buf = message.get_view();
-        deserialize(monster.equipped, buf);
+        auto reader_sub = reader.get_message();
+        deserialize(monster.equipped, reader_sub);
         break;
       }
       case 9: {
-        auto buf = message.get_view();
+        auto reader_sub = reader.get_message();
         Vec3 v{};
-        deserialize(v, buf);
+        deserialize(v, reader_sub);
         monster.path.push_back(v);
         break;
       }
@@ -100,19 +139,18 @@ void deserialize(Monster& monster, data_view buffer) {
   }
 }
 template <typename T>
-void deserialize(std::vector<T>& ms, data_view buffer) {
-  pbf_reader message{buffer};
-  while (message.next()) {
-    switch (message.tag()) {
+void deserialize(std::vector<T>& ms, pbf_reader& reader) {
+  while (reader.next()) {
+    switch (reader.tag()) {
       case 1: {
-        auto buf = message.get_view();
+        auto reader_sub = reader.get_message();
         T m{};
-        deserialize(m, buf);
+        deserialize(m, reader_sub);
         ms.push_back(m);
         break;
       }
       default: {
-        message.skip();
+        reader.skip();
       }
     }
   }
