@@ -920,6 +920,75 @@ class unpacker {
       return std::errc::invalid_argument;
     }
   }
+  std::errc decode_varint_v2(uint64_t& v) {
+    if ((static_cast<uint64_t>(data_[pos_]) & 0x80U) == 0) {
+      v = static_cast<uint64_t>(data_[pos_]);
+      pos_++;
+      return std::errc{};
+    }
+    constexpr const int8_t max_varint_length = sizeof(uint64_t) * 8 / 7 + 1;
+    uint64_t val = 0;
+    if (size_ - pos_ >= max_varint_length) {
+      do {
+        // clang-format off
+        int64_t b = data_[pos_++];
+                           val  = ((uint64_t(b) & 0x7fU)       ); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) <<  7U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 14U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 21U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 28U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 35U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 42U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 49U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x7fU) << 56U); if (b >= 0) { break; }
+        b = data_[pos_++]; val |= ((uint64_t(b) & 0x01U) << 63U); if (b >= 0) { break; }
+        // clang-format on
+        return std::errc::argument_out_of_domain;
+      } while (false);
+    }
+    else {
+      unsigned int shift = 0;
+      while (pos_ != size_ && int64_t(data_[pos_]) < 0) {
+        val |= (uint64_t(data_[pos_++]) & 0x7fU) << shift;
+        shift += 7;
+      }
+      if (pos_ == size_) {
+        return std::errc::no_buffer_space;
+      }
+      val |= uint64_t(data_[pos_++]) << shift;
+    }
+    v = val;
+    return std::errc{};
+  }
+  template <typename Field>
+  std::errc decode_varint_v1(Field& f) {
+    uint64_t n = 0;
+    std::size_t i = 0;
+    bool finished = false;
+    while (pos_ < size_) {
+      if ((uint8_t(data_[pos_]) >> 7) == 1) {
+        n |= static_cast<uint64_t>(data_[pos_] & 0b0111'1111) << 7 * i;
+        pos_++;
+        i++;
+      }
+      else {
+        finished = true;
+        break;
+      }
+    }
+    if (finished) {
+      n |= static_cast<Field>(data_[pos_] & 0b0111'1111) << 7 * i;
+      pos_++;
+      f = n;
+      return std::errc{};
+    }
+    else {
+      if (pos_ >= size_) {
+        return std::errc::no_buffer_space;
+      }
+      return std::errc::invalid_argument;
+    }
+  }
   template <typename T, typename Field>
   [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_varint(T& t,
                                                                 Field& f) {
@@ -927,36 +996,17 @@ class unpacker {
       return deserialize_varint(t, f.value());
     }
     else {
+      //      uint64_t v;
+      //      auto ec = decode_varint(v);
+      //      if (ec == std::errc{}) {
+      //        f = v;
+      //      }
+      //      return ec;
       // Variable-width integers, or varints,
       // are at the core of the wire format.
       // They allow encoding unsigned 64-bit integers using anywhere
       // between one and ten bytes, with small values using fewer bytes.
-      uint64_t n = 0;
-      std::size_t i = 0;
-      bool finished = false;
-      while (pos_ < size_) {
-        if ((uint8_t(data_[pos_]) >> 7) == 1) {
-          n |= static_cast<uint64_t>(data_[pos_] & 0b0111'1111) << 7 * i;
-          pos_++;
-          i++;
-        }
-        else {
-          finished = true;
-          break;
-        }
-      }
-      if (finished) {
-        n |= static_cast<Field>(data_[pos_] & 0b0111'1111) << 7 * i;
-        pos_++;
-        f = n;
-        return std::errc{};
-      }
-      else {
-        if (pos_ >= size_) {
-          return std::errc::no_buffer_space;
-        }
-        return std::errc::invalid_argument;
-      }
+      return decode_varint_v1(f);
     }
   }
 
