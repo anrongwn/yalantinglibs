@@ -1157,6 +1157,10 @@ class unpacker {
           f[entry.first] = entry.second;
         }
         else {
+          // huge performance effect
+          // if (f.empty()) {
+          //  f.reserve(32);
+          // }
           value_type val{};
           unpacker o(data_ + pos_, sz);
           ec = o.template deserialize(val);
