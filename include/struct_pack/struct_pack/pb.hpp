@@ -216,164 +216,9 @@ consteval wire_type_t get_wire_type() {
   }
 }
 // clang-format on
-template <typename T, std::size_t FieldIndex>
-[[nodiscard]] STRUCT_PACK_INLINE auto& get_field(T& t) {
-  static_assert(!detail::optional<T>);
-  constexpr auto Count = detail::member_count<T>();
-  constexpr auto Index = FieldIndex;
-  static_assert(Index >= 0 && Index <= Count);
-  if constexpr (Count == 1) {
-    auto& [a1] = t;
-    return std::get<Index>(std::forward_as_tuple(a1));
-  }
-  else if constexpr (Count == 2) {
-    auto& [a1, a2] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2));
-  }
-  else if constexpr (Count == 3) {
-    auto& [a1, a2, a3] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
-  }
-  else if constexpr (Count == 4) {
-    auto& [a1, a2, a3, a4] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
-  }
-  else if constexpr (Count == 5) {
-    auto& [a1, a2, a3, a4, a5] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
-  }
-  else if constexpr (Count == 6) {
-    auto& [a1, a2, a3, a4, a5, a6] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
-  }
-  else if constexpr (Count == 7) {
-    auto& [a1, a2, a3, a4, a5, a6, a7] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
-  }
-  else if constexpr (Count == 8) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
-  }
-  else if constexpr (Count == 9) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
-  }
-  else if constexpr (Count == 10) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
-  }
-  else if constexpr (Count == 11) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
-  }
-  else if constexpr (Count == 12) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12));
-  }
-  else if constexpr (Count == 13) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12, a13));
-  }
-  else if constexpr (Count == 14) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12, a13, a14));
-  }
-  else if constexpr (Count == 15) {
-    auto& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15] =
-        t;
-    return std::get<Index>(std::forward_as_tuple(
-        a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
-  }
-  else {
-    static_assert(!sizeof(T), "wait for add hard code");
-  }
-}
-template <typename T, std::size_t FieldIndex>
-[[nodiscard]] STRUCT_PACK_INLINE const auto& get_field(const T& t) {
-  static_assert(!detail::optional<T>);
-  constexpr auto Count = detail::member_count<T>();
-  constexpr auto Index = FieldIndex;
-  static_assert(Index >= 0 && Index <= Count);
-  if constexpr (Count == 1) {
-    auto&& [a1] = t;
-    return std::get<Index>(std::forward_as_tuple(a1));
-  }
-  else if constexpr (Count == 2) {
-    auto&& [a1, a2] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2));
-  }
-  else if constexpr (Count == 3) {
-    auto&& [a1, a2, a3] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3));
-  }
-  else if constexpr (Count == 4) {
-    auto&& [a1, a2, a3, a4] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4));
-  }
-  else if constexpr (Count == 5) {
-    auto&& [a1, a2, a3, a4, a5] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5));
-  }
-  else if constexpr (Count == 6) {
-    auto&& [a1, a2, a3, a4, a5, a6] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6));
-  }
-  else if constexpr (Count == 7) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7));
-  }
-  else if constexpr (Count == 8) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8));
-  }
-  else if constexpr (Count == 9) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9));
-  }
-  else if constexpr (Count == 10) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10));
-  }
-  else if constexpr (Count == 11) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11] = t;
-    return std::get<Index>(
-        std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11));
-  }
-  else if constexpr (Count == 12) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12));
-  }
-  else if constexpr (Count == 13) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12, a13));
-  }
-  else if constexpr (Count == 14) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14] = t;
-    return std::get<Index>(std::forward_as_tuple(a1, a2, a3, a4, a5, a6, a7, a8,
-                                                 a9, a10, a11, a12, a13, a14));
-  }
-  else if constexpr (Count == 15) {
-    auto&& [a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15] =
-        t;
-    return std::get<Index>(std::forward_as_tuple(
-        a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11, a12, a13, a14, a15));
-  }
-  else {
-    static_assert(!sizeof(T), "wait for add hard code");
-  }
-}
+
+//#include "pb_get_field_from_ifelse.hpp"
+#include "pb_get_field_from_tuple.hpp"
 
 template <std::size_t FieldNumber, typename T>
 [[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t);
@@ -913,9 +758,6 @@ class unpacker {
   [[nodiscard]] STRUCT_PACK_INLINE std::errc deserialize_one(
       T& t, wire_type_t wire_type) {
     constexpr auto Count = detail::member_count<T>();
-    constexpr auto Map = get_field_number_to_index_map<T>();
-    constexpr auto n2i_map = Map.first;
-    constexpr auto i2n_map = Map.second;
     if constexpr (FieldIndex < Count) {
       using T_Field =
           std::tuple_element_t<FieldIndex,
@@ -938,8 +780,6 @@ class unpacker {
     static_assert(!std::is_const_v<T>);
     constexpr auto Count = detail::member_count<T>();
     static_assert(FieldIndex < Count);
-    constexpr auto Map = get_field_number_to_index_map<T>();
-    constexpr auto n2i_map = Map.first;
     auto&& f = get_field<T, FieldIndex>(t);
     static_assert(!std::is_const_v<std::remove_reference_t<decltype(f)>>);
     if constexpr (WireType == wire_type_t::varint) {
@@ -980,7 +820,7 @@ class unpacker {
       return std::errc::invalid_argument;
     }
   }
-  std::errc decode_varint_v2(uint64_t& v) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc decode_varint_v2(uint64_t& v) {
     if ((static_cast<uint64_t>(data_[pos_]) & 0x80U) == 0) {
       v = static_cast<uint64_t>(data_[pos_]);
       pos_++;
@@ -1021,7 +861,7 @@ class unpacker {
     return std::errc{};
   }
   template <typename Field>
-  std::errc decode_varint_v1(Field& f) {
+  [[nodiscard]] STRUCT_PACK_INLINE std::errc decode_varint_v1(Field& f) {
     uint64_t n = 0;
     std::size_t i = 0;
     bool finished = false;
@@ -1056,17 +896,17 @@ class unpacker {
       return deserialize_varint(t, f.value());
     }
     else {
-      //      uint64_t v;
-      //      auto ec = decode_varint(v);
-      //      if (ec == std::errc{}) {
-      //        f = v;
-      //      }
-      //      return ec;
+      uint64_t v;
+      auto ec = decode_varint_v2(v);
+      if (ec == std::errc{}) {
+        f = v;
+      }
+      return ec;
       // Variable-width integers, or varints,
       // are at the core of the wire format.
       // They allow encoding unsigned 64-bit integers using anywhere
       // between one and ten bytes, with small values using fewer bytes.
-      return decode_varint_v1(f);
+      // return decode_varint_v1(f);
     }
   }
 
