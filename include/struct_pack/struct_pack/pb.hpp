@@ -1163,7 +1163,7 @@ class unpacker {
           if (ec != std::errc{}) {
             return ec;
           }
-          f.push_back(val);
+          f.push_back(std::move(val));
         }
         pos_ += sz;
         return ec;
