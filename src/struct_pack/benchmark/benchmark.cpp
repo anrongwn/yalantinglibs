@@ -13,16 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <atomic>
-#ifdef HAVE_MSGPACK
-#include <msgpack.hpp>
-#endif
-#include <numeric>
-#include <thread>
-#include <valarray>
-
 #include "../tests/hex_printer.hpp"
 #include "config.hpp"
+#include "data_def.hpp"
 #include "native_pb.hpp"
 #include "no_op.h"
 #include "protopuf_pb.hpp"
@@ -53,15 +46,6 @@ class ScopedTimer {
   uint64_t *m_ns = nullptr;
 };
 
-struct person {
-  int32_t id;
-  std::string name;
-  int age;
-  double salary;
-#ifdef HAVE_MSGPACK
-  MSGPACK_DEFINE(id, name, age, salary);
-#endif
-};
 
 template <typename T>
 T get_max() {
@@ -94,69 +78,6 @@ T get_max() {
 }
 
 template <typename T>
-struct rect {
-  T x = get_max<T>();
-  T y = get_max<T>();
-  T width = get_max<T>();
-  T height = get_max<T>();
-#ifdef HAVE_MSGPACK
-  MSGPACK_DEFINE(x, y, width, height);
-#endif
-};
-
-enum Color : uint8_t { Red, Green, Blue };
-
-struct Vec3 {
-  float x;
-  float y;
-  float z;
-
-  bool operator==(const Vec3 &rhs) const {
-    std::valarray<float> lh({x, y, z});
-    std::valarray<float> rh({rhs.x, rhs.y, rhs.z});
-    return (std::abs(lh - rh) < 0.05f).min();
-  };
-#ifdef HAVE_MSGPACK
-  MSGPACK_DEFINE(x, y, z);
-#endif
-};
-
-struct Weapon {
-  std::string name;
-  int16_t damage;
-
-  bool operator==(const Weapon &rhs) const {
-    return name == rhs.name && damage == rhs.damage;
-  };
-#ifdef HAVE_MSGPACK
-  MSGPACK_DEFINE(name, damage);
-#endif
-};
-
-struct Monster {
-  Vec3 pos;
-  int16_t mana;
-  int16_t hp;
-  std::string name;
-  std::vector<uint8_t> inventory;
-  Color color;
-  std::vector<Weapon> weapons;
-  Weapon equipped;
-  std::vector<Vec3> path;
-
-  bool operator==(const Monster &rhs) const {
-    return pos == rhs.pos && mana == rhs.mana && hp == rhs.hp &&
-           name == rhs.name && inventory == rhs.inventory &&
-           color == rhs.color && weapons == rhs.weapons &&
-           equipped == rhs.equipped && path == rhs.path;
-  };
-#ifdef HAVE_MSGPACK
-  MSGPACK_DEFINE(pos, mana, hp, name, inventory, (int &)color, weapons,
-                 equipped, path);
-#endif
-};
-
-template <typename T>
 inline uint64_t get_avg(const T &v) {
   uint64_t sum = std::accumulate(v.begin(), v.end(), uint64_t(0));
   return sum / v.size();
@@ -176,6 +97,7 @@ std::string buffer3;
 std::string buffer4;
 using buffer5_t = std::array<std::byte, 3000 * OBJECT_COUNT>;
 buffer5_t buffer5;
+std::string buffer6;
 
 template <typename T, typename PB, typename BinPB, typename PP_PB>
 void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
@@ -196,8 +118,9 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
   buffer3.reserve(pb_sz * SAMPLES_COUNT);
   buffer4.reserve(struct_pack::pb::get_needed_size(bin));
   // buffer5.reserve(pb_sz);
+  buffer6.reserve(pb_sz * SAMPLES_COUNT);
 
-  std::array<std::array<uint64_t, 10>, 10> arr;
+  std::array<std::array<uint64_t, 10>, 12> arr;
 
   for (int i = 0; i < 10; ++i) {
     buffer1.clear();
@@ -205,6 +128,7 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
     buffer3.clear();
     buffer4.clear();
     buffer5 = buffer5_t{};
+    buffer6.clear();
     {
       ScopedTimer timer("serialize structpack", arr[0][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
@@ -241,6 +165,14 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
       ScopedTimer timer("serialize pp    pb", arr[8][i]);
       for (int j = 0; j < SAMPLES_COUNT; j++) {
         pp::message_coder<PP_PB>::encode(cmp_pp_pb, buffer5);
+      }
+      no_op();
+    }
+    {
+      ScopedTimer timer("serialize protozero pb", arr[10][i]);
+      for (int j = 0; j < SAMPLES_COUNT; j++) {
+        protozero::pbf_writer writer{buffer6};
+        protozero_pb::serialize(t, writer);
       }
       no_op();
     }
@@ -304,6 +236,16 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
         no_op();
       }
     }
+    {
+      ScopedTimer timer("deserialize protozero pb", arr[11][i]);
+      std::size_t len = 0;
+      for (size_t j = 0; j < SAMPLES_COUNT; j++) {
+        T tmp_t{};
+        protozero::pbf_reader reader{buffer4.data() + 0 * pb_sz, pb_sz};
+        protozero_pb::deserialize(tmp_t, reader);
+        no_op();
+      }
+    }
   }
 
   std::cout << tag << " "
@@ -327,6 +269,9 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
   std::cout << tag << " "
             << "protopuf    serialize average: " << get_avg(arr[8])
             << ", deserialize average: " << get_avg(arr[9]) << "\n";
+  std::cout << tag << " "
+            << "protozero   serialize average: " << get_avg(arr[10])
+            << ", deserialize average: " << get_avg(arr[11]) << "\n";
   //<< ", buf size: " << buffer4.size() / SAMPLES_COUNT << "\n";
 #ifdef HAVE_MSGPACK
   std::cout << tag << " "
@@ -346,6 +291,10 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
             << "struct_pb   serialize is   "
             << (double)get_avg(arr[8]) / get_avg(arr[6])
             << " times faster than protopuf\n";
+  std::cout << tag << " "
+            << "struct_pb   serialize is   "
+            << (double)get_avg(arr[10]) / get_avg(arr[6])
+            << " times faster than protozero\n";
 #ifdef HAVE_MSGPACK
   std::cout << tag << " "
             << "struct_pack deserialize is "
@@ -364,6 +313,10 @@ void bench(T &t, PB &p, BinPB &bin, PP_PB &cmp_pp_pb, std::string tag) {
             << "struct_pb   deserialize is "
             << (double)get_avg(arr[9]) / get_avg(arr[7])
             << " times faster than protopuf\n";
+  std::cout << tag << " "
+            << "struct_pb   deserialize is "
+            << (double)get_avg(arr[11]) / get_avg(arr[7])
+            << " times faster than protozero\n";
   std::cout << "------- end benchmark   " << tag << " -------\n\n";
 }
 
@@ -392,7 +345,7 @@ std::vector<Monster> create_monsters(size_t object_count) {
       .mana = 16,
       .hp = 24,
       .name = "it is a test",
-      .inventory = {1, 2, 3, 4},
+      .inventory = "\1\2\3\4",
       .color = Color::Red,
       .weapons = {{"gun", 42}, {"mission", 56}},
       .equipped = {"air craft", 67},
@@ -404,7 +357,7 @@ std::vector<Monster> create_monsters(size_t object_count) {
       .mana = 161,
       .hp = 241,
       .name = "it is a test, ok",
-      .inventory = {24, 25, 25, 24},
+      .inventory = "\24\25\26\24",
       .color = Color::Red,
       .weapons = {{"gun", 421}, {"mission", 561}},
       .equipped = {"air craft", 671},
@@ -444,15 +397,15 @@ auto cmp_pp_pbs2 = pp_pb::create_monsters(OBJECT_COUNT);
 auto cmp_pp_pb2 = cmp_pp_pbs2["monsters"_f][0];
 
 int main() {
-  {
-    bench(v[0], pb, bin_pb, cmp_pp_pb, "1 rect");
-    bench(v, pbs, bin_pbs, cmp_pp_pbs, "20 rect");
-  }
-
-  {
-    bench(v1[0], pb1, bin_pb1, cmp_pp_pb1, "1 person");
-    bench(v1, pbs1, bin_pbs1, cmp_pp_pbs1, "20 person");
-  }
+  //  {
+  //    bench(v[0], pb, bin_pb, cmp_pp_pb, "1 rect");
+  //    bench(v, pbs, bin_pbs, cmp_pp_pbs, "20 rect");
+  //  }
+  //
+  //  {
+  //    bench(v1[0], pb1, bin_pb1, cmp_pp_pb1, "1 person");
+  //    bench(v1, pbs1, bin_pbs1, cmp_pp_pbs1, "20 person");
+  //  }
 
   {
     bench(v2[0], pb2, bin_pb2, cmp_pp_pb2, "1 monster");
