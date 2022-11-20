@@ -797,6 +797,15 @@ class packer {
   STRUCT_PACK_INLINE void write_tag(std::size_t field_number,
                                     wire_type_t wire_type) {
     auto tag = (field_number << 3) | uint8_t(wire_type);
+    // https://developers.google.com/protocol-buffers/docs/proto3#assigning_field_numbers
+    // The smallest field number you can specify is 1,
+    // and the largest is 2^29 - 1, or 536,870,911.
+    // You also cannot use the numbers 19000 through 19999
+    // (FieldDescriptor::kFirstReservedNumber through
+    // FieldDescriptor::kLastReservedNumber),
+    // as they are reserved for the Protocol Buffers implementation
+    assert((tag > 0 && tag < 19000) ||
+           (tag > 19999 && tag <= ((1U << 29U) - 1)));
     serialize_varint(tag);
   }
 
