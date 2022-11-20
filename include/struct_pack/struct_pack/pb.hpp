@@ -647,6 +647,55 @@ consteval auto get_sorted_field_number_array() {
       std::make_index_sequence<Count>());
 }
 
+template <std::size_t Size>
+struct FieldMap {
+  std::array<std::pair<std::size_t, std::size_t>, Size> i2n;
+  std::array<std::pair<std::size_t, std::size_t>, Size> n2i;
+};
+
+template <typename T, std::size_t Size, std::size_t... I>
+consteval auto create_map_impl(std::index_sequence<I...>) {
+  constexpr auto i2n_map = get_field_i2n_map<T>();
+  constexpr auto n2i_map = get_field_n2i_map<T>();
+  constexpr auto n_array = get_sorted_field_number_array<T>();
+  FieldMap<Size> m{
+      .i2n = {std::make_pair(I, i2n_map.at(I))...},
+      .n2i = {std::make_pair(std::get<I>(n_array),
+                             n2i_map.at(std::get<I>(n_array)))...}};
+  return m;
+}
+
+template<typename T>
+consteval auto create_map() {
+  constexpr auto Count = detail::member_count<T>();
+  return create_map_impl<T, Count>(std::make_index_sequence<Count>());
+}
+
+template<typename T>
+[[nodiscard]] STRUCT_PACK_INLINE constexpr std::size_t get_field_index(std::size_t FieldNumber) {
+  constexpr auto Count = detail::member_count<T>();
+  constexpr auto map = create_map<T>();
+  // TODO: optimize with binary search
+  for (int i = 0; i < map.n2i.size(); ++i) {
+    if (FieldNumber == map.n2i[i].first) {
+      return map.n2i[i].second;
+    }
+  }
+  return Count;
+}
+template<typename T>
+[[nodiscard]] STRUCT_PACK_INLINE constexpr std::size_t get_field_number(std::size_t FieldIndex) {
+  constexpr auto Count = detail::member_count<T>();
+  constexpr auto map = create_map<T>();
+  for (int i = 0; i < map.i2n.size(); ++i) {
+    if (FieldIndex == map.i2n[i].first) {
+      return map.i2n[i].second;
+    }
+  }
+  return 0;
+}
+
+
 template <detail::struct_pack_byte Byte>
 class packer {
  public:
@@ -839,6 +888,7 @@ class unpacker {
  private:
   template <typename T>
   [[nodiscard]] STRUCT_PACK_INLINE constexpr std::errc deserialize_one(T& t) {
+    constexpr auto Count = detail::member_count<T>();
     constexpr auto n2i_map = get_field_n2i_map<T>();
     constexpr auto i2n_map = get_field_i2n_map<T>();
     assert(pos_ < size_);
@@ -848,10 +898,11 @@ class unpacker {
       return ec;
     }
     auto field_number = tag >> 3;
-    if (n2i_map.count(field_number) != 1) {
+
+    auto field_index = get_field_index<T>(field_number);
+    if (field_index == Count) {
       return std::errc::invalid_argument;
     }
-    auto field_index = n2i_map.at(field_number);
     auto wire_type = static_cast<wire_type_t>(tag & 0b0000'0111);
     assert(field_index <= detail::MaxVisitMembers);
     return detail::template_switch<unpacker_helper>(field_index, *this, t,
