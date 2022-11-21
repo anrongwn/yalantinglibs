@@ -734,8 +734,6 @@ class unpacker {
   template <typename T>
   [[nodiscard]] STRUCT_PACK_INLINE constexpr std::errc deserialize_one(T& t) {
     constexpr auto Count = detail::member_count<T>();
-    constexpr auto n2i_map = get_field_n2i_map<T>();
-    constexpr auto i2n_map = get_field_i2n_map<T>();
     assert(pos_ < size_);
     uint32_t tag{};
     auto ec = read_tag(t, tag);
