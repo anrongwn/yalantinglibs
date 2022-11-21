@@ -666,6 +666,28 @@ class packer {
       }
     }
   }
+
+  template <typename T>
+  STRUCT_PACK_INLINE void encode_varint_v1(T t) {
+    uint64_t v = t;
+    do {
+      assert(pos_ < max_);
+      data_[pos_++] = 0b1000'0000 | uint8_t(v);
+      v >>= 7;
+    } while (v != 0);
+    assert(pos_ > 0);
+    data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
+  }
+  // from google/protobuf/io/coded_stream.h EpsCopyOutputStream::UnsafeVarint
+  template <std::unsigned_integral T>
+  STRUCT_PACK_INLINE void encode_varint_v2(T t) {
+    while (t >= 0x80) {
+      assert(pos_ < max_);
+      data_[pos_++] = static_cast<uint8_t>(t | 0x80);
+      t >>= 7;
+    }
+    data_[pos_++] = static_cast<uint8_t>(t);
+  }
   template <typename T>
   STRUCT_PACK_INLINE void serialize_varint(T t) {
     if constexpr (varintable_t<T>) {
@@ -678,14 +700,7 @@ class packer {
       serialize_varint(v);
     }
     else {
-      uint64_t v = t;
-      do {
-        assert(pos_ < max_);
-        data_[pos_++] = 0b1000'0000 | uint8_t(v);
-        v >>= 7;
-      } while (v != 0);
-      assert(pos_ > 0);
-      data_[pos_ - 1] = uint8_t(data_[pos_ - 1]) & 0b0111'1111;
+      encode_varint_v2(t);
     }
   }
   STRUCT_PACK_INLINE void write_tag(std::size_t field_number,
