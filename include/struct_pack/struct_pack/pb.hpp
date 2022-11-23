@@ -220,8 +220,9 @@ consteval wire_type_t get_wire_type() {
 //#include "pb_get_field_from_ifelse.hpp"
 #include "pb_get_field_from_tuple.hpp"
 
-template <std::size_t FieldNumber, typename T>
-[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t);
+
+template <std::size_t FieldIndex, std::size_t FieldNumber, typename T, typename Field>
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t, const Field& field);
 
 template <typename T>
 consteval auto get_field_number_to_index_map();
@@ -232,7 +233,7 @@ template <typename T, std::size_t Size, std::size_t... I>
   constexpr auto Map = get_field_number_to_index_map<T>();
   constexpr auto i2n_map = Map.second;
   std::array<std::size_t, Size> size_array{
-      calculate_one_size<i2n_map.at(I)>(get_field<T, I>(t))...};
+      calculate_one_size<I, i2n_map.at(I)>(t, get_field<T, I>(t))...};
   return std::accumulate(size_array.begin(), size_array.end(), 0);
 }
 template <typename T>
@@ -304,100 +305,150 @@ consteval std::size_t calculate_tag_size() {
   auto tag = (FieldNumber << 3U) | uint8_t(wire_type);
   return calculate_varint_size(tag);
 }
-template <std::size_t FieldNumber, typename T>
-[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t) {
-  constexpr auto wire_type = get_wire_type<T>();
-  constexpr auto tag_size = calculate_tag_size<FieldNumber, wire_type>();
-  if constexpr (detail::optional<T>) {
-    if (t.has_value()) {
-      return calculate_one_size<FieldNumber>(t.value());
+
+
+
+template <typename T, std::size_t FieldIndex>
+struct oneof_field_number_array {
+  using T_Field =
+      std::tuple_element_t<FieldIndex,
+                           decltype(detail::get_types(std::declval<T>()))>;
+  static_assert(detail::variant<T_Field>);
+  using array_type = std::array<std::size_t, std::variant_size_v<T_Field>>;
+};
+template <typename T, std::size_t FieldIndex>
+using oneof_field_number_array_t = typename oneof_field_number_array<T, FieldIndex>::array_type;
+template<typename T, std::size_t FieldIndex>
+constexpr oneof_field_number_array_t<T, FieldIndex> oneof_field_number_seq{};
+
+template<std::size_t FieldIndex>
+struct oneof_size_helper_with_field_index {
+  template<std::size_t VariantIndex, typename T, typename OneofField>
+  [[nodiscard]] STRUCT_PACK_INLINE std::size_t run(const T&t, const OneofField& field) {
+    constexpr auto seq = struct_pack::pb::oneof_field_number_seq<T, FieldIndex>;
+    constexpr auto FieldNumber = std::get<VariantIndex>(seq);
+    return calculate_one_size<FieldIndex, FieldNumber>(t, field);
+  }
+};
+
+template <std::size_t VariantIndex, typename Helper, typename T, typename Variant>
+struct oneof_size_helper {
+  [[nodiscard]] STRUCT_PACK_INLINE static std::size_t run(Helper& u, const T&t, const Variant& v) {
+    if constexpr (VariantIndex < std::variant_size_v<Variant>) {
+      assert(VariantIndex == v.index());
+      return u.template run<VariantIndex>(t, std::get<VariantIndex>(v));
     }
     else {
+      assert(!sizeof(Variant) && "error path");
+      // never reached
       return 0;
     }
   }
-  else if constexpr (VARINT<T>) {
-    if constexpr (std::is_enum_v<T>) {
-      auto v = static_cast<uint64_t>(t);
-      if (v == 0) {
-        return 0;
-      }
-      return tag_size + calculate_varint_size(v);
-    }
-    else {
-      if (t == T{}) {
-        return 0;
-      }
-      return tag_size + calculate_varint_size(t);
-    }
-  }
-  else if constexpr (LEN<T>) {
-    if constexpr (std::same_as<T, std::string>) {
-      if (t.empty()) {
-        return 0;
-      }
-      return tag_size + calculate_varint_size(t.size()) + t.size();
-    }
-    else if constexpr (detail::container<T>) {
-      if (t.empty()) {
-        return 0;
-      }
-      using value_type = typename T::value_type;
-      if constexpr (VARINT<value_type>) {
-        std::size_t sz = 0;
-        for (auto&& i : t) {
-          sz += calculate_varint_size(i);
-        }
-        return tag_size + calculate_varint_size(t.size()) + sz;
-      }
-      else if constexpr (I32<value_type> || I64<value_type>) {
-        auto total = t.size() * sizeof(value_type);
-        return tag_size + calculate_varint_size(total) + total;
-      }
-      else {
-        if constexpr (detail::map_container<T>) {
-          using key_type = typename T::key_type;
-          using mapped_type = typename T::mapped_type;
-          static_assert(
-              std::same_as<key_type, std::string> || std::integral<key_type>,
-              "the key_type must be integral or string type");
-          static_assert(!detail::map_container<mapped_type>,
-                        "the mapped_type can be any type except another map.");
-        }
-        std::size_t total = 0;
-        for (auto&& e : t) {
-          auto size = get_needed_size(e);
-          total += tag_size + calculate_varint_size(size) + size;
-        }
-        return total;
-      }
-    }
-    else if constexpr (std::is_class_v<T>) {
-      auto size = get_needed_size(t);
-      return tag_size + calculate_varint_size(size) + size;
-    }
-    else {
-      static_assert(!sizeof(T), "ERROR type");
-      return 0;
-    }
-  }
-  else if constexpr (I64<T>) {
-    static_assert(sizeof(T) == 8);
-    if (t == 0) {
-      return 0;
-    }
-    return tag_size + sizeof(T);
-  }
-  else if constexpr (I32<T>) {
-    static_assert(sizeof(T) == 4);
-    if (t == 0) {
-      return 0;
-    }
-    return tag_size + sizeof(T);
+};
+template<std::size_t FieldIndex, typename T, detail::variant Variant>
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_oneof_size(const T& t, const Variant& v) {
+  oneof_size_helper_with_field_index<FieldIndex> helper;
+  return detail::template_switch<oneof_size_helper>(v.index(), helper, t, v);
+}
+template <std::size_t FieldIndex, std::size_t FieldNumber, typename T, typename Field>
+[[nodiscard]] STRUCT_PACK_INLINE std::size_t calculate_one_size(const T& t, const Field& field) {
+  if constexpr (detail::variant<Field>) {
+    return calculate_oneof_size<FieldIndex>(t, field);
   }
   else {
-    static_assert(!sizeof(T), "ERROR type");
-    return 0;
+    constexpr auto wire_type = get_wire_type<Field>();
+    constexpr auto tag_size = calculate_tag_size<FieldNumber, wire_type>();
+    if constexpr (detail::optional<Field>) {
+      if (field.has_value()) {
+        return calculate_one_size<FieldIndex, FieldNumber>(t, field.value());
+      }
+      else {
+        return 0;
+      }
+    }
+    else if constexpr (VARINT<Field>) {
+      if constexpr (std::is_enum_v<Field>) {
+        auto v = static_cast<uint64_t>(field);
+        if (v == 0) {
+          return 0;
+        }
+        return tag_size + calculate_varint_size(v);
+      }
+      else {
+        if (field == Field{}) {
+          return 0;
+        }
+        return tag_size + calculate_varint_size(field);
+      }
+    }
+    else if constexpr (LEN<Field>) {
+      if constexpr (std::same_as<Field, std::string>) {
+        if (field.empty()) {
+          return 0;
+        }
+        return tag_size + calculate_varint_size(field.size()) + field.size();
+      }
+      else if constexpr (detail::container<Field>) {
+        if (field.empty()) {
+          return 0;
+        }
+        using value_type = typename Field::value_type;
+        if constexpr (VARINT<value_type>) {
+          std::size_t sz = 0;
+          for (auto&& i : field) {
+            sz += calculate_varint_size(i);
+          }
+          return tag_size + calculate_varint_size(field.size()) + sz;
+        }
+        else if constexpr (I32<value_type> || I64<value_type>) {
+          auto total = field.size() * sizeof(value_type);
+          return tag_size + calculate_varint_size(total) + total;
+        }
+        else {
+          if constexpr (detail::map_container<Field>) {
+            using key_type = typename Field::key_type;
+            using mapped_type = typename Field::mapped_type;
+            static_assert(
+                std::same_as<key_type, std::string> || std::integral<key_type>,
+                "the key_type must be integral or string type");
+            static_assert(!detail::map_container<mapped_type>,
+                          "the mapped_type can be any type except another map.");
+          }
+          std::size_t total = 0;
+          for (auto&& e : field) {
+            auto size = get_needed_size(e);
+            total += tag_size + calculate_varint_size(size) + size;
+          }
+          return total;
+        }
+      }
+      else if constexpr (std::is_class_v<Field>) {
+        auto size = get_needed_size(field);
+        return tag_size + calculate_varint_size(size) + size;
+      }
+      else {
+        static_assert(!sizeof(Field), "ERROR type");
+        return 0;
+      }
+    }
+    else if constexpr (I64<Field>) {
+      static_assert(sizeof(Field) == 8);
+      if (field == 0) {
+        return 0;
+      }
+      return tag_size + sizeof(Field);
+    }
+    else if constexpr (I32<Field>) {
+      static_assert(sizeof(Field) == 4);
+      if (field == 0) {
+        return 0;
+      }
+      return tag_size + sizeof(Field);
+    }
+    else {
+      static_assert(!sizeof(Field), "ERROR type");
+      return 0;
+    }
   }
 }
 template <typename T>
@@ -411,7 +462,6 @@ template <typename T>
 using field_number_array_t = typename field_number_array<T>::array_type;
 template <typename T>
 constexpr field_number_array_t<T> field_number_seq{};
-
 template <typename... Args>
 consteval bool all_field_number_greater_than_zero(Args... args) {
   return (... && args);
@@ -435,10 +485,13 @@ consteval bool has_duplicate_element() {
   }
   return false;
 }
+template<typename T>
+consteval bool check_oneof();
 
 template <typename T, std::size_t Size, std::size_t... I>
 consteval auto get_field_number_to_index_map_impl(std::index_sequence<I...>) {
   constexpr auto seq = field_number_seq<T>;
+  static_assert(check_oneof<T>(), "please check field number in oneof");
   if constexpr (field_number_seq_not_init(std::get<I>(seq)...)) {
     frozen::map<std::size_t, std::size_t, Size> n2i{
         {first_field_number<T> + I, I}...};
@@ -492,18 +545,85 @@ consteval auto get_sorted_field_number_array() {
       std::make_index_sequence<Count>());
 }
 
-template <std::size_t Size>
+template<typename T, std::size_t FieldIndex, typename U>
+consteval bool check_oneof_field_number() {
+  if constexpr (detail::variant<U>) {
+    constexpr auto array = oneof_field_number_seq<T, FieldIndex>;
+    for(auto i: array) {
+      if (i == 0) {
+        return false;
+      }
+    }
+    for (int i = 0; i < array.size(); ++i) {
+      for (int j = 0; j < i; ++j) {
+        if (array[i] == array[j]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+  else {
+    return true;
+  }
+}
+
+template<typename T, detail::tuple Tuple, std::size_t ...I>
+consteval bool check_oneof_impl(std::index_sequence<I...>) {
+  return (... && check_oneof_field_number<T, I, std::tuple_element_t<I,Tuple>>());
+}
+
+template<typename T>
+consteval bool check_oneof() {
+  constexpr auto Count = detail::member_count<T>();
+  using Tuple = decltype(detail::get_types(std::declval<T>()));
+  return check_oneof_impl<T, Tuple>(std::make_index_sequence<Count>());
+}
+
+template <std::size_t i2n_Size, std::size_t n2i_Size>
 struct FieldMap {
-  std::array<std::pair<std::size_t, std::size_t>, Size> i2n;
-  std::array<std::pair<std::size_t, std::size_t>, Size> n2i;
+  std::array<std::pair<std::size_t, std::size_t>, i2n_Size> i2n;
+  std::array<std::pair<std::size_t, std::size_t>, n2i_Size> n2i;
 };
+
+template<typename T, typename Field>
+consteval std::size_t one_field_number_count() {
+  if constexpr (detail::variant<Field>) {
+    return std::variant_size_v<Field>;
+  }
+  else {
+    return 1;
+  }
+}
+
+template<typename T, std::size_t ...I>
+consteval std::size_t field_number_count_impl(std::index_sequence<I...>) {
+  using Tuple = decltype(detail::get_types(std::declval<T>()));
+  return ( 0 + ... + one_field_number_count<T, std::tuple_element_t<I, Tuple>>());
+}
+template<typename T>
+consteval std::size_t field_number_count() {
+  constexpr auto Count = detail::member_count<T>();
+//  if constexpr (Count == 1) {
+//    using Tuple = decltype(detail::get_types(std::declval<T>()));
+//    return one_field_number_count<T, std::tuple_element_t<0, Tuple>>();
+//  }
+//  else {
+    return field_number_count_impl<T>(std::make_index_sequence<Count>());
+//  }
+}
+template <typename T>
+consteval auto rebuild_n2i() {
+
+}
 
 template <typename T, std::size_t Size, std::size_t... I>
 consteval auto create_map_impl(std::index_sequence<I...>) {
   constexpr auto i2n_map = get_field_i2n_map<T>();
   constexpr auto n2i_map = get_field_n2i_map<T>();
   constexpr auto n_array = get_sorted_field_number_array<T>();
-  FieldMap<Size> m{
+  constexpr auto n2i_Size = field_number_count<T>();
+  FieldMap<Size, n2i_Size> m{
       .i2n = {std::make_pair(I, i2n_map.at(I))...},
       .n2i = {std::make_pair(std::get<I>(n_array),
                              n2i_map.at(std::get<I>(n_array)))...}};
@@ -556,25 +676,30 @@ class packer {
   STRUCT_PACK_INLINE void serialize(const T& t, std::index_sequence<I...>) {
     constexpr auto FieldArray = get_sorted_field_number_array<T>();
     constexpr auto n2i_map = get_field_n2i_map<T>();
-    (serialize(get_field<T, n2i_map.at(std::get<I>(FieldArray))>(t),
-               std::get<I>(FieldArray)),
+    (serialize<n2i_map.at(std::get<I>(FieldArray)),
+               std::get<I>(FieldArray)
+               >(t, get_field<T, n2i_map.at(std::get<I>(FieldArray))>(t)),
      ...);
   }
-  template <typename T>
-  STRUCT_PACK_INLINE void serialize(const T& t, std::size_t field_number) {
-    if constexpr (detail::optional<T>) {
-      if (t.has_value()) {
-        serialize(t.value(), field_number);
+  template <std::size_t FieldIndex, std::size_t FieldNumber, typename T, typename Field>
+  STRUCT_PACK_INLINE void serialize(const T& t, const Field& field) {
+    if constexpr (detail::optional<Field>) {
+      if (field.has_value()) {
+        serialize<FieldIndex, FieldNumber>(t, field.value());
       }
       else {
         return;
       }
     }
+    else if constexpr (detail::variant<Field>) {
+      serialize_oneof<FieldIndex>(t, field);
+      return;
+    }
     else {
-      constexpr auto wire_type = get_wire_type<T>();
-      if constexpr (VARINT<T>) {
-        if constexpr (std::is_enum_v<T>) {
-          auto v = static_cast<uint64_t>(t);
+      constexpr auto wire_type = get_wire_type<Field>();
+      if constexpr (VARINT<Field>) {
+        if constexpr (std::is_enum_v<Field>) {
+          auto v = static_cast<uint64_t>(field);
           if (v == 0) {
             return;
           }
@@ -584,44 +709,44 @@ class packer {
           serialize_varint(v);
         }
         else {
-          if (t == T{}) {
+          if (field == Field{}) {
             return;
           }
-          write_tag(field_number, wire_type);
-          serialize_varint(t);
+          write_tag<FieldNumber, wire_type>();
+          serialize_varint(field);
         }
       }
-      else if constexpr (I64<T> || I32<T>) {
-        if (t == 0) {
+      else if constexpr (I64<Field> || I32<Field>) {
+        if (field == 0) {
           return;
         }
-        write_tag(field_number, wire_type);
-        std::memcpy(data_ + pos_, &t, sizeof(T));
-        pos_ += sizeof(T);
+        write_tag<FieldNumber, wire_type>();
+        std::memcpy(data_ + pos_, &field, sizeof(Field));
+        pos_ += sizeof(Field);
       }
-      else if constexpr (LEN<T>) {
-        if constexpr (std::same_as<T, std::string>) {
-          if (t.empty()) {
+      else if constexpr (LEN<Field>) {
+        if constexpr (std::same_as<Field, std::string>) {
+          if (field.empty()) {
             return;
           }
-          write_tag(field_number, wire_type);
-          serialize_varint(t.size());
-          assert(pos_ + t.size() <= max_);
-          std::memcpy(data_ + pos_, t.data(), t.size());
-          pos_ += t.size();
+          write_tag<FieldNumber, wire_type>();
+          serialize_varint(field.size());
+          assert(pos_ + field.size() <= max_);
+          std::memcpy(data_ + pos_, field.data(), field.size());
+          pos_ += field.size();
         }
-        else if constexpr (detail::map_container<T> || detail::container<T>) {
-          if (t.empty()) {
+        else if constexpr (detail::map_container<Field> || detail::container<Field>) {
+          if (field.empty()) {
             return;
           }
-          using value_type = typename T::value_type;
+          using value_type = typename Field::value_type;
           if constexpr (VARINT<value_type>) {
-            write_tag(field_number, wire_type);
+            write_tag<FieldNumber, wire_type>();
             auto sz_pos = pos_;
             // risk to data len > 1byte
             pos_++;
             std::size_t sz = 0;
-            for (auto&& e : t) {
+            for (auto&& e : field) {
               sz += calculate_varint_size(e);
               serialize_varint(e);
             }
@@ -631,16 +756,16 @@ class packer {
             pos_ = new_pos;
           }
           else if constexpr (I64<value_type> || I32<value_type>) {
-            write_tag(field_number, wire_type);
-            auto size = t.size() * sizeof(value_type);
+            write_tag<FieldNumber, wire_type>();
+            auto size = field.size() * sizeof(value_type);
             serialize_varint(size);
             assert(pos_ + size <= max_);
-            std::memcpy(data_ + pos_, t.data(), size);
+            std::memcpy(data_ + pos_, field.data(), size);
             pos_ += size;
           }
           else {
-            for (auto&& e : t) {
-              write_tag(field_number, wire_type);
+            for (auto&& e : field) {
+              write_tag<FieldNumber, wire_type>();
               std::size_t sz = 0;
               if constexpr (I32<value_type> || I64<value_type>) {
                 sz = calculate_one_size(e);
@@ -654,19 +779,48 @@ class packer {
           }
         }
         else {
-          static_assert(std::is_class_v<T>);
-          write_tag(field_number, wire_type);
-          auto sz = get_needed_size(t);
+          static_assert(std::is_class_v<Field>);
+          write_tag<FieldNumber, wire_type>();
+          auto sz = get_needed_size(field);
           serialize_varint(sz);
-          serialize(t);
+          serialize(field);
         }
       }
       else {
-        static_assert(!sizeof(T), "SGROUP and EGROUP are deprecated");
+        static_assert(!sizeof(Field), "SGROUP and EGROUP are deprecated");
       }
     }
   }
 
+  template <std::size_t FieldIndex, typename T, detail::variant Variant>
+  STRUCT_PACK_INLINE void serialize_oneof(const T& t, const Variant& v) {
+    oneof_packer_helper_with_field_index<FieldIndex> helper;
+    detail::template_switch<oneof_packer_helper>(v.index(), helper, *this, t, v);
+  }
+  template<std::size_t FieldIndex>
+  struct oneof_packer_helper_with_field_index {
+    template<std::size_t VariantIndex, typename Packer, typename T, typename OneofField>
+    STRUCT_PACK_INLINE void run(Packer& self, const T&t, const OneofField& field) {
+      constexpr auto seq = struct_pack::pb::oneof_field_number_seq<T, FieldIndex>;
+      constexpr auto FieldNumber = std::get<VariantIndex>(seq);
+      return self.template serialize<FieldIndex, FieldNumber>(t, field);
+    }
+  };
+
+  template <std::size_t VariantIndex, typename Helper, typename Packer, typename T, typename Variant>
+  struct oneof_packer_helper {
+    STRUCT_PACK_INLINE static void run(Helper& u, Packer& self, const T&t, const Variant& v) {
+      if constexpr (VariantIndex < std::variant_size_v<Variant>) {
+        assert(VariantIndex == v.index());
+        return u.template run<VariantIndex>(self, t, std::get<VariantIndex>(v));
+      }
+      else {
+        assert(!sizeof(Variant) && "error path");
+        // never reached
+        return;
+      }
+    }
+  };
   template <typename T>
   STRUCT_PACK_INLINE void encode_varint_v1(T t) {
     uint64_t v = t;
@@ -703,9 +857,9 @@ class packer {
       encode_varint_v2(t);
     }
   }
-  STRUCT_PACK_INLINE void write_tag(std::size_t field_number,
-                                    wire_type_t wire_type) {
-    auto tag = (field_number << 3) | uint8_t(wire_type);
+  template<std::size_t field_number, wire_type_t wire_type>
+  STRUCT_PACK_INLINE void write_tag() {
+    constexpr auto tag = (field_number << 3) | uint8_t(wire_type);
     // https://developers.google.com/protocol-buffers/docs/proto3#assigning_field_numbers
     // The smallest field number you can specify is 1,
     // and the largest is 2^29 - 1, or 536,870,911.
@@ -763,6 +917,7 @@ class unpacker {
     }
     auto wire_type = static_cast<wire_type_t>(tag & 0b0000'0111);
     assert(field_index <= detail::MaxVisitMembers);
+//    cur_tag_ = tag;
     return detail::template_switch<unpacker_helper>(field_index, *this, t,
                                                     wire_type);
   }
@@ -1010,6 +1165,24 @@ class unpacker {
           f[entry.first] = entry.second;
         }
         else {
+//          auto pos_bak = pos_;
+//          std::size_t container_size = 0;
+//          std::size_t message_size = sz;
+//          while (true) {
+//            pos_ += message_size;
+//            container_size++;
+//            uint32_t new_tag{};
+//            auto e = read_tag(t, new_tag);
+//            if (e != std::errc{} || new_tag != cur_tag_) {
+//              break ;
+//            }
+//            e = deserialize_varint(t, message_size);
+//            if (e != std::errc{}) {
+//              break ;
+//            }
+//          }
+//          f.reserve(f.size() + container_size);
+//          pos_ = pos_bak;
           // huge performance effect
           // if (f.empty()) {
           //  f.reserve(32);
@@ -1081,6 +1254,7 @@ class unpacker {
   const Byte* data_;
   std::size_t size_;
   std::size_t pos_ = 0;
+//  uint32_t cur_tag_{};
 };
 
 template <detail::struct_pack_buffer Buffer = std::vector<char>,
