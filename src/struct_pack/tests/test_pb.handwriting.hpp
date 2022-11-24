@@ -80,6 +80,12 @@ struct my_test_sint64 {
 struct my_test_map {
   std::unordered_map<std::string, varint32_t> e;
 };
+
+struct my_test_fixed32 {
+  uint32_t a;
+  std::vector<uint32_t> b;
+  bool operator==(const my_test_fixed32 &) const = default;
+};
 template <typename T>
 struct my_test_fixed {
   using value_type = T;
@@ -87,13 +93,9 @@ struct my_test_fixed {
   std::vector<T> b;
   bool operator==(const my_test_fixed &) const = default;
 };
-
-struct my_test_fixed32 {
-  uint32_t a;
-  std::vector<uint32_t> b;
-  bool operator==(const my_test_fixed32 &) const = default;
-};
-
+using my_test_fixed64 = my_test_fixed<uint64_t>;
+using my_test_sfixed32 = my_test_fixed<int32_t>;
+using my_test_sfixed64 = my_test_fixed<int64_t>;
 struct my_test_field_number_random {
   varint32_t a;
   sint64_t b;
@@ -135,5 +137,5 @@ struct sub_message_for_oneof {
   bool operator==(const sub_message_for_oneof&) const = default;
 };
 struct sample_message_oneof {
-  std::variant<varint32_t, varint32_t, std::string, sub_message_for_oneof> t;
+  std::variant<varint32_t, varint32_t, std::string, sub_message_for_oneof> test_oneof;
 };

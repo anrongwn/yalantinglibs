@@ -12,7 +12,7 @@ TEST_CASE("testing oneof") {
     auto pb_buf = pb_t.SerializeAsString();
 
     sample_message_oneof t;
-    t.t.emplace<0>(13298);
+    t.test_oneof.emplace<0>(13298);
     auto size = get_needed_size(t);
     REQUIRE(size == pb_buf.size());
     auto buf = serialize<std::string>(t);
@@ -22,8 +22,8 @@ TEST_CASE("testing oneof") {
     REQUIRE(d_t_ret);
     REQUIRE(len == buf.size());
     auto d_t = d_t_ret.value();
-    CHECK(d_t.t.index() == 0);
-    CHECK(std::get<0>(d_t.t) == 13298);
+    CHECK(d_t.test_oneof.index() == 0);
+    CHECK(std::get<0>(d_t.test_oneof) == 13298);
   }
   SUBCASE("index 1") {
 
@@ -32,7 +32,7 @@ TEST_CASE("testing oneof") {
     auto pb_buf = pb_t.SerializeAsString();
 
     sample_message_oneof t;
-    t.t.emplace<1>(66613298);
+    t.test_oneof.emplace<1>(66613298);
     auto size = get_needed_size(t);
     REQUIRE(size == pb_buf.size());
     auto buf = serialize<std::string>(t);
@@ -42,8 +42,8 @@ TEST_CASE("testing oneof") {
     REQUIRE(d_t_ret);
     REQUIRE(len == buf.size());
     auto d_t = d_t_ret.value();
-    CHECK(d_t.t.index() == 1);
-    CHECK(std::get<1>(d_t.t) == 66613298);
+    CHECK(d_t.test_oneof.index() == 1);
+    CHECK(std::get<1>(d_t.test_oneof) == 66613298);
   }
   SUBCASE("index 2") {
     SampleMessageOneof pb_t;
@@ -51,7 +51,7 @@ TEST_CASE("testing oneof") {
     auto pb_buf = pb_t.SerializeAsString();
 
     sample_message_oneof t;
-    t.t.emplace<2>("oneof index 2");
+    t.test_oneof.emplace<2>("oneof index 2");
     auto size = get_needed_size(t);
     REQUIRE(size == pb_buf.size());
     auto buf = serialize<std::string>(t);
@@ -61,8 +61,8 @@ TEST_CASE("testing oneof") {
     REQUIRE(d_t_ret);
     REQUIRE(len == buf.size());
     auto d_t = d_t_ret.value();
-    CHECK(d_t.t.index() == 2);
-    CHECK(std::get<2>(d_t.t) == "oneof index 2");
+    CHECK(d_t.test_oneof.index() == 2);
+    CHECK(std::get<2>(d_t.test_oneof) == "oneof index 2");
   }
   SUBCASE("submessage index 3") {
     SampleMessageOneof pb_t;
@@ -73,7 +73,7 @@ TEST_CASE("testing oneof") {
 
     sample_message_oneof t;
     auto sub = sub_message_for_oneof{true};
-    t.t.emplace<3>(sub);
+    t.test_oneof.emplace<3>(sub);
     auto size = get_needed_size(t);
     REQUIRE(size == pb_buf.size());
     auto buf = serialize<std::string>(t);
@@ -83,7 +83,7 @@ TEST_CASE("testing oneof") {
     REQUIRE(d_t_ret);
     REQUIRE(len == buf.size());
     auto d_t = d_t_ret.value();
-    CHECK(d_t.t.index() == 3);
-    CHECK(std::get<3>(d_t.t) == sub);
+    CHECK(d_t.test_oneof.index() == 3);
+    CHECK(std::get<3>(d_t.test_oneof) == sub);
   }
 }
