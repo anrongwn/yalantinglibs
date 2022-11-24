@@ -9,21 +9,13 @@ struct test1 {
 struct test2 {
   std::string b;
 };
-template <>
-constexpr std::size_t first_field_number<test2> = 2;
 struct test3 {
   std::optional<test1> c;
 };
-template <>
-constexpr std::size_t first_field_number<test3> = 3;
 struct test4 {
   std::string d;
   std::vector<varint32_t> e;
 };
-template <>
-constexpr std::size_t first_field_number<test4> = 4;
-
-
 struct my_test_double {
   double a;
   double b;
@@ -72,9 +64,6 @@ struct my_test_enum {
   enum class Color { Red, Green, Blue, Enum127 = 127, Enum128 = 128 };
   Color color;
 };
-template <>
-constexpr std::size_t first_field_number<my_test_enum> = 6;
-
 struct my_test_repeated_message {
   std::vector<my_test_float> fs;
 };
@@ -88,15 +77,9 @@ struct my_test_sint64 {
   sint64_t b;
   auto operator<=>(const my_test_sint64 &) const = default;
 };
-template <>
-constexpr std::size_t first_field_number<my_test_sint64> = 2;
-
 struct my_test_map {
   std::unordered_map<std::string, varint32_t> e;
 };
-template <>
-constexpr std::size_t first_field_number<my_test_map> = 3;
-
 template <typename T>
 struct my_test_fixed {
   using value_type = T;
@@ -120,9 +103,6 @@ struct my_test_field_number_random {
   std::vector<uint32_t> f;
   bool operator==(const my_test_field_number_random &) const = default;
 };
-template <>
-constexpr field_number_array_t<my_test_field_number_random>
-    field_number_seq<my_test_field_number_random>{6, 3, 4, 5, 1, 128};
 
 
 struct my_test_all {
@@ -150,4 +130,10 @@ struct my_test_all {
   }
 };
 
-
+struct sub_message_for_oneof {
+  bool ok;
+  bool operator==(const sub_message_for_oneof&) const = default;
+};
+struct sample_message_oneof {
+  std::variant<varint32_t, varint32_t, std::string, sub_message_for_oneof> t;
+};

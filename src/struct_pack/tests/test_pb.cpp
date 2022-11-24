@@ -20,7 +20,6 @@
 #include "test_pb.pb.h"
 using namespace doctest;
 using namespace struct_pack::pb;
-#include "test_pb.handwriting.hpp"
 
 template <typename T, typename PB_T>
 void check_serialization(const T &t, const PB_T &pb_t) {

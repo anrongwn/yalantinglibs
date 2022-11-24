@@ -2,21 +2,8 @@
 #include "doctest.h"
 #include "test_pb.pb.h"
 #include "hex_printer.hpp"
-using namespace struct_pack::pb;
-using namespace doctest;
-struct sub_message_for_oneof {
-  bool ok;
-  bool operator==(const sub_message_for_oneof&) const = default;
-};
-struct sample_message_oneof {
-  std::variant<varint32_t, varint32_t, std::string, sub_message_for_oneof> t;
-};
-template<>
-constexpr oneof_field_number_array_t<sample_message_oneof, 0>
-    oneof_field_number_seq<sample_message_oneof, 0>{
-    10, 8, 4, 9
-};
 
+using namespace doctest;
 
 TEST_CASE("testing oneof") {
   SUBCASE("index 0") {
