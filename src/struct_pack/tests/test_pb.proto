@@ -113,3 +113,15 @@ message MyTestAll {
   string n = 14;
   bytes o = 15;
 }
+message SubMessageForOneof {
+  bool ok = 1;
+}
+message SampleMessageOneof {
+  oneof test_oneof {
+    int32 b = 10;
+    int32 a = 8;
+
+    string name = 4;
+    SubMessageForOneof sub_message = 9;
+  }
+}
