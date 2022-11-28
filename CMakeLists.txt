@@ -20,6 +20,10 @@ endif ()
 if (NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release")
 endif ()
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O0")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O0")
+#set(CMAKE_CXX_FLAGS_RELEASE "-O0 -g")
+#message(STATUS "CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 if (NOT CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
     if (CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -102,3 +106,27 @@ foreach (proj ${yaLanTingLibs_ENABLE_PROJECTS})
 endforeach ()
 
 install(DIRECTORY include DESTINATION include)
+add_executable(demo demo.cpp)
+target_link_libraries(demo PRIVATE libstruct_pack)
+find_package(Protobuf)
+message(STATUS "Protobuf_FOUND: ${Protobuf_FOUND}")
+target_compile_definitions(demo PRIVATE HAVE_PROTOBUF)
+target_link_libraries(demo PRIVATE protobuf::libprotobuf)
+protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS
+        src/struct_pack/benchmark/benchmark.proto
+        demo.proto
+        )
+target_include_directories(demo PUBLIC thirdparty/protopuf/include)
+target_include_directories(demo PUBLIC thirdparty/protozero/include)
+target_include_directories(demo PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
+target_sources(demo PRIVATE
+        ${PROTO_SRCS}
+        ${PROTO_HDRS}
+        )
+
+add_executable(bug bug.cpp)
+target_include_directories(bug PRIVATE thirdparty/protopuf/include)
+target_include_directories(bug PRIVATE thirdparty/protozero/include)
+add_executable(pb_perf pb_perf.cpp)
+target_link_libraries(pb_perf PRIVATE libstruct_pack)
+target_compile_options(pb_perf PRIVATE -g)

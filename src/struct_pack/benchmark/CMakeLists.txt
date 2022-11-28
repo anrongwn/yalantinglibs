@@ -20,5 +20,9 @@ if (msgpack_FOUND)
     message(STATUS "msgpack_FOUND: ${msgpack_FOUND}")
     target_link_libraries(struct_pack_benchmark PRIVATE msgpackc-cxx)
     target_compile_definitions(struct_pack_benchmark PRIVATE MSGPACK_NO_BOOST)
-    target_compile_definitions(struct_pack_benchmark PRIVATE HAVE_MSGPACK)
+#    target_compile_definitions(struct_pack_benchmark PRIVATE HAVE_MSGPACK)
 endif ()
+target_include_directories(struct_pack_benchmark PRIVATE
+        ${CMAKE_SOURCE_DIR}/thirdparty/protozero/include
+        ${CMAKE_SOURCE_DIR}/thirdparty/protopuf/include
+        )
